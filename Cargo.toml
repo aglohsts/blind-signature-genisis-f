@@ -1,0 +1,11 @@
+[package]
+name = "blind-sig"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qfall-math = "0.1.1"
+qfall-schemes = "0.1.0"
+qfall-tools = "0.1.0"
+
+
