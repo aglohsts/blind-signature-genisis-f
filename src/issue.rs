@@ -77,10 +77,13 @@ pub fn user_check<F: TagFunction>(
     st: &UserState,
     resp: &SignerResponse,
 ) -> bool {
+    // The norm bound comes first: the reused f_a asserts its domain
+    // bound internally. Report: "The Commitment and the Protocol
+    // Layer".
     resp.x >= Z::ONE
         && resp.x <= pk.f.domain_size()
-        && pk.psf.f_a(&pk.a, &resp.s) == &pk.f.eval(&resp.x) + &st.c
         && pk.psf.check_domain(&resp.s)
+        && pk.psf.f_a(&pk.a, &resp.s) == &pk.f.eval(&resp.x) + &st.c
 }
 
 #[cfg(test)]
