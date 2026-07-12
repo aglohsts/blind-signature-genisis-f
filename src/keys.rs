@@ -2,6 +2,7 @@
 //! Report: "The Commitment and the Protocol Layer".
 
 use crate::commitment::CommitmentKey;
+use crate::proof_com::ComProofParams;
 use crate::tag_function::TagFunction;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
@@ -17,6 +18,7 @@ pub struct PublicKey<F: TagFunction> {
     pub s_r: Q,
     pub beta_msg_sqrd: Z,
     pub beta_r_sqrd: Z,
+    pub com_params: ComProofParams,
 }
 
 /// The secret key: the trapdoor `T_A` for `A`.
@@ -34,6 +36,7 @@ pub fn key_gen<F: TagFunction>(
     s_r: Q,
     beta_msg_sqrd: Z,
     beta_r_sqrd: Z,
+    com_params: ComProofParams,
 ) -> (PublicKey<F>, SecretKey) {
     assert_eq!(
         &psf.gp.modulus,
@@ -56,6 +59,7 @@ pub fn key_gen<F: TagFunction>(
             s_r,
             beta_msg_sqrd,
             beta_r_sqrd,
+            com_params,
         },
         SecretKey { trapdoor },
     )
@@ -71,6 +75,13 @@ pub(crate) mod tests {
     const D: i64 = 8;
     const Q_MOD: u64 = 257;
 
+    pub(crate) fn toy_com_params() -> ComProofParams {
+        ComProofParams {
+            witness_inf: 20,
+            mask_inf: 8000,
+        }
+    }
+
     pub(crate) fn toy_psf() -> PSFGPVRing {
         PSFGPVRing {
             gp: GadgetParametersRing::init_default(D, Q_MOD),
@@ -82,7 +93,7 @@ pub(crate) mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "keys-test");
-        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300))
+        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300), toy_com_params())
     }
 
     #[test]
@@ -108,6 +119,6 @@ pub(crate) mod tests {
         let psf = toy_psf();
         let other_modulus = qfall_tools::utils::common_moduli::new_anticyclic(D, 509).unwrap();
         let f = HashToRing::new(1, 1u64 << 20, other_modulus, "keys-test");
-        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300));
+        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300), toy_com_params());
     }
 }

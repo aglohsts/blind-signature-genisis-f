@@ -89,7 +89,7 @@ pub fn user_check<F: TagFunction>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{PublicKey, key_gen, tests::toy_psf};
+    use crate::keys::{PublicKey, key_gen, tests::{toy_com_params, toy_psf}};
     use crate::tag_function::HashToRing;
     use qfall_math::rational::Q;
 
@@ -98,7 +98,7 @@ mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "issue-test");
-        let (pk, sk) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000));
+        let (pk, sk) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (pk, sk, m)
     }

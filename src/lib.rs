@@ -5,6 +5,7 @@
 pub mod commitment;
 pub mod issue;
 pub mod keys;
+pub mod proof_com;
 pub mod signature;
 pub mod tag_function;
 pub(crate) mod util;
