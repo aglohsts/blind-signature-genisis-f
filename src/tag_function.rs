@@ -4,6 +4,10 @@
 use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 
+mod binary_encoding;
+
+pub use binary_encoding::BinaryEncoding;
+
 /// The fixed public tag function `f : [N] -> R_q^n`.
 pub trait TagFunction {
     /// Returns the domain size `N`.
