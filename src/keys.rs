@@ -62,7 +62,7 @@ pub fn key_gen<F: TagFunction>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::tag_function::HashToRing;
     use qfall_math::traits::MatrixDimensions;

@@ -3,5 +3,7 @@
 //! described in the report chapter "Prototype Implementation".
 
 pub mod commitment;
+pub mod issue;
 pub mod keys;
 pub mod tag_function;
+pub(crate) mod util;
