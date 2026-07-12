@@ -5,8 +5,10 @@ use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 
 mod binary_encoding;
+mod hash_to_ring;
 
 pub use binary_encoding::BinaryEncoding;
+pub use hash_to_ring::HashToRing;
 
 /// The fixed public tag function `f : [N] -> R_q^n`.
 pub trait TagFunction {
