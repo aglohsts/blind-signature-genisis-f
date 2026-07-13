@@ -4,11 +4,10 @@
 
 use crate::keys::PublicKey;
 use crate::tag_function::TagFunction;
+use crate::util::norm_inf;
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
-use qfall_math::traits::{
-    IntoCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient,
-};
+use qfall_math::traits::{MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient};
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
 
 /// Parameters of the proof: the assumed bound on the witness
@@ -49,8 +48,7 @@ pub fn prove_com<F: TagFunction>(
     let degree = pk.f.modulus().get_degree();
     let params = &pk.com_params;
     assert!(
-        norm_inf(m, degree) <= Z::from(params.witness_inf)
-            && norm_inf(r, degree) <= Z::from(params.witness_inf),
+        norm_inf(m, degree) <= params.witness_inf && norm_inf(r, degree) <= params.witness_inf,
         "the witness coefficients exceed the assumed bound",
     );
     let bound = params.response_inf(degree);
@@ -77,7 +75,7 @@ pub fn prove_com<F: TagFunction>(
         let gamma = challenge(pk, c, &t);
         let z_m = &y_m + &mul_scalar_negacyclic(&gamma, m, degree);
         let z_r = &y_r + &mul_scalar_negacyclic(&gamma, r, degree);
-        if norm_inf(&z_m, degree) <= Z::from(bound) && norm_inf(&z_r, degree) <= Z::from(bound) {
+        if norm_inf(&z_m, degree) <= bound && norm_inf(&z_r, degree) <= bound {
             return ComProof {
                 challenge: gamma,
                 z_m,
@@ -112,8 +110,7 @@ pub fn verify_com<F: TagFunction>(
     {
         return false;
     }
-    let bound = Z::from(response_inf);
-    if norm_inf(&proof.z_m, degree) > bound || norm_inf(&proof.z_r, degree) > bound {
+    if norm_inf(&proof.z_m, degree) > response_inf || norm_inf(&proof.z_r, degree) > response_inf {
         return false;
     }
     // t' = B_1 * z_m + B_2 * z_r - challenge * c.
@@ -171,12 +168,6 @@ fn mul_scalar_negacyclic(gamma: &PolyOverZ, v: &MatPolyOverZ, degree: i64) -> Ma
         out.set_entry(i, 0, prod).unwrap();
     }
     out
-}
-
-fn norm_inf(v: &MatPolyOverZ, degree: i64) -> Z {
-    v.clone()
-        .into_coefficient_embedding(degree)
-        .norm_l_infty_infty()
 }
 
 fn entries_fit_degree(v: &MatPolyOverZ, degree: i64) -> bool {
@@ -320,7 +311,7 @@ mod tests {
         let (pk, m, r, c) = setup();
         let proof = prove_com(&pk, &m, &r, &c);
         let degree = pk.f.modulus().get_degree();
-        let bound = Z::from(pk.com_params.response_inf(degree));
+        let bound = pk.com_params.response_inf(degree);
         assert!(norm_inf(&proof.z_m, degree) <= bound);
         assert!(norm_inf(&proof.z_r, degree) <= bound);
     }

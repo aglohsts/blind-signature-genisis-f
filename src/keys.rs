@@ -7,7 +7,7 @@ use crate::tag_function::TagFunction;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_math::rational::Q;
-use qfall_tools::primitive::psf::{PSF, PSFGPVRing};
+use qfall_tools::primitive::psf::{PSFGPVRing, PSF};
 
 /// The public key of the scheme.
 pub struct PublicKey<F: TagFunction> {
@@ -47,6 +47,26 @@ pub fn key_gen<F: TagFunction>(
         1,
         f.rows(),
         "the ring-setting prototype supports module rank n = 1 only",
+    );
+    assert!(
+        s_r > Q::ZERO,
+        "the randomness Gaussian width must be positive"
+    );
+    assert!(
+        beta_msg_sqrd >= Z::ZERO,
+        "the message squared-norm bound must be non-negative",
+    );
+    assert!(
+        beta_r_sqrd > Z::ZERO,
+        "the randomness squared-norm bound must be positive",
+    );
+    assert!(
+        com_params.witness_inf > 0,
+        "the proof witness bound must be positive",
+    );
+    assert!(
+        com_params.response_inf(f.modulus().get_degree()) > 0,
+        "the proof response bound must be positive",
     );
     let (a, trapdoor) = psf.trap_gen();
     let ck = CommitmentKey::generate(ell_m, ell_r, f.modulus());
@@ -93,7 +113,16 @@ pub(crate) mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "keys-test");
-        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300), toy_com_params())
+        key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::from(300),
+            toy_com_params(),
+        )
     }
 
     #[test]
@@ -119,6 +148,32 @@ pub(crate) mod tests {
         let psf = toy_psf();
         let other_modulus = qfall_tools::utils::common_moduli::new_anticyclic(D, 509).unwrap();
         let f = HashToRing::new(1, 1u64 << 20, other_modulus, "keys-test");
-        key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(300), toy_com_params());
+        key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::from(300),
+            toy_com_params(),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "randomness squared-norm bound must be positive")]
+    fn non_positive_randomness_bound_rejected() {
+        let psf = toy_psf();
+        let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "keys-test");
+        key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::ZERO,
+            toy_com_params(),
+        );
     }
 }

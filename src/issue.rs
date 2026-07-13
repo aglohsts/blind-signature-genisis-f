@@ -6,7 +6,7 @@
 use crate::keys::{PublicKey, SecretKey};
 use crate::proof_com::{prove_com, verify_com, ComProof};
 use crate::tag_function::TagFunction;
-use crate::util::norm_eucl_sqrd;
+use crate::util::{norm_eucl_sqrd, norm_inf};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::PSF;
@@ -39,10 +39,18 @@ pub fn user_commit<F: TagFunction>(
 ) -> (UserCommitMessage, UserState) {
     let degree = pk.f.modulus().get_degree();
     assert!(
-        norm_eucl_sqrd(m, degree) <= pk.beta_msg_sqrd,
-        "the message is outside the message space (||m||^2 > B_msg^2)",
+        norm_eucl_sqrd(m, degree) <= pk.beta_msg_sqrd
+            && norm_inf(m, degree) <= pk.com_params.witness_inf,
+        "the message is outside the message or proof bounds",
     );
-    let r = pk.ck.sample_randomness(&pk.s_r);
+    let r = loop {
+        let candidate = pk.ck.sample_randomness(&pk.s_r);
+        if norm_eucl_sqrd(&candidate, degree) <= pk.beta_r_sqrd
+            && norm_inf(&candidate, degree) <= pk.com_params.witness_inf
+        {
+            break candidate;
+        }
+    };
     let c = pk.ck.commit(m, &r);
     let proof = prove_com(pk, m, &r, &c);
     (
@@ -175,7 +183,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "outside the message space")]
+    fn commitment_randomness_satisfies_public_bounds() {
+        let (pk, _, m) = setup();
+        let (_, state) = user_commit(&pk, &m);
+        let degree = pk.f.modulus().get_degree();
+        assert!(norm_eucl_sqrd(&state.r, degree) <= pk.beta_r_sqrd);
+        assert!(norm_inf(&state.r, degree) <= pk.com_params.witness_inf);
+    }
+
+    #[test]
+    #[should_panic(expected = "outside the message or proof bounds")]
     fn oversized_message_rejected() {
         let (pk, _, _) = setup();
         let big_m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 100, 200).unwrap();
