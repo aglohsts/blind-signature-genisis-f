@@ -4,7 +4,7 @@
 //! Layer".
 
 use crate::keys::{PublicKey, SecretKey};
-use crate::proof_com::{ComProof, prove_com, verify_com};
+use crate::proof_com::{prove_com, verify_com, ComProof};
 use crate::tag_function::TagFunction;
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, Z};
@@ -50,11 +50,7 @@ pub fn user_commit<F: TagFunction>(
             c: c.clone(),
             proof,
         },
-        UserState {
-            m: m.clone(),
-            r,
-            c,
-        },
+        UserState { m: m.clone(), r, c },
     )
 }
 
@@ -98,16 +94,30 @@ pub fn user_check<F: TagFunction>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{PublicKey, key_gen, tests::{toy_com_params, toy_psf}};
+    use crate::keys::{
+        key_gen,
+        tests::{toy_com_params, toy_psf},
+        PublicKey,
+    };
     use crate::tag_function::HashToRing;
     use qfall_math::rational::Q;
+    use qfall_math::traits::MatrixDimensions;
 
     const D: i64 = 8;
 
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "issue-test");
-        let (pk, sk) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
+        let (pk, sk) = key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::from(2000),
+            toy_com_params(),
+        );
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (pk, sk, m)
     }
@@ -153,6 +163,14 @@ mod tests {
         let (pk, sk, m) = setup();
         let (mut msg, _) = user_commit(&pk, &m);
         msg.proof.z_m = &msg.proof.z_m + &msg.proof.z_m;
+        assert!(signer_respond(&pk, &sk, &msg).is_none());
+    }
+
+    #[test]
+    fn malformed_proof_makes_the_signer_abort() {
+        let (pk, sk, m) = setup();
+        let (mut msg, _) = user_commit(&pk, &m);
+        msg.proof.z_m = MatPolyOverZ::new(pk.ck.b1.get_num_columns(), 2);
         assert!(signer_respond(&pk, &sk, &msg).is_none());
     }
 

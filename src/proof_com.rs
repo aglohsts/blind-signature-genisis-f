@@ -7,8 +7,7 @@ use crate::tag_function::TagFunction;
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_math::traits::{
-    IntoCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, MatrixSetEntry,
-    SetCoefficient,
+    IntoCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient,
 };
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
 
@@ -58,12 +57,22 @@ pub fn prove_com<F: TagFunction>(
     assert!(bound > 0, "mask_inf must exceed d * witness_inf");
     let (ell_m, ell_r) = (m.get_num_rows(), r.get_num_rows());
     loop {
-        let y_m =
-            MatPolyOverZ::sample_uniform(ell_m, 1, degree - 1, -params.mask_inf, params.mask_inf + 1)
-                .unwrap();
-        let y_r =
-            MatPolyOverZ::sample_uniform(ell_r, 1, degree - 1, -params.mask_inf, params.mask_inf + 1)
-                .unwrap();
+        let y_m = MatPolyOverZ::sample_uniform(
+            ell_m,
+            1,
+            degree - 1,
+            -params.mask_inf,
+            params.mask_inf + 1,
+        )
+        .unwrap();
+        let y_r = MatPolyOverZ::sample_uniform(
+            ell_r,
+            1,
+            degree - 1,
+            -params.mask_inf,
+            params.mask_inf + 1,
+        )
+        .unwrap();
         let t = commit_ring(pk, &y_m, &y_r);
         let gamma = challenge(pk, c, &t);
         let z_m = &y_m + &mul_scalar_negacyclic(&gamma, m, degree);
@@ -85,12 +94,26 @@ pub fn verify_com<F: TagFunction>(
     proof: &ComProof,
 ) -> bool {
     let degree = pk.f.modulus().get_degree();
-    let bound = Z::from(pk.com_params.response_inf(degree));
-    if proof.z_m.get_num_rows() != pk.ck.b1.get_num_columns()
+    let response_inf = pk.com_params.response_inf(degree);
+    if response_inf <= 0
+        || c.get_num_rows() != 1
+        || c.get_num_columns() != 1
+        || &c.get_mod() != pk.f.modulus()
+        || pk.ck.b1.get_num_rows() != 1
+        || pk.ck.b2.get_num_rows() != 1
+        || &pk.ck.b1.get_mod() != pk.f.modulus()
+        || &pk.ck.b2.get_mod() != pk.f.modulus()
+        || proof.z_m.get_num_rows() != pk.ck.b1.get_num_columns()
+        || proof.z_m.get_num_columns() != 1
         || proof.z_r.get_num_rows() != pk.ck.b2.get_num_columns()
-        || norm_inf(&proof.z_m, degree) > bound
-        || norm_inf(&proof.z_r, degree) > bound
+        || proof.z_r.get_num_columns() != 1
+        || !entries_fit_degree(&proof.z_m, degree)
+        || !entries_fit_degree(&proof.z_r, degree)
     {
+        return false;
+    }
+    let bound = Z::from(response_inf);
+    if norm_inf(&proof.z_m, degree) > bound || norm_inf(&proof.z_r, degree) > bound {
         return false;
     }
     // t' = B_1 * z_m + B_2 * z_r - challenge * c.
@@ -122,7 +145,8 @@ fn challenge<F: TagFunction>(
 ) -> PolyOverZ {
     let degree = pk.f.modulus().get_degree();
     let input = format!("pi_com|{}|{}|{}|{}", pk.ck.b1, pk.ck.b2, c, t);
-    let digest = hash_to_mat_zq_sha256(&input, degree, 1, 3).get_representative_least_nonnegative_residue();
+    let digest =
+        hash_to_mat_zq_sha256(&input, degree, 1, 3).get_representative_least_nonnegative_residue();
     let mut gamma = PolyOverZ::default();
     for i in 0..degree {
         let v: Z = digest.get_entry(i, 0).unwrap();
@@ -140,9 +164,7 @@ fn mul_scalar_negacyclic(gamma: &PolyOverZ, v: &MatPolyOverZ, degree: i64) -> Ma
     for i in 0..v.get_num_rows() {
         let entry: PolyOverZ = v.get_entry(i, 0).unwrap();
         let mut prod = gamma * &entry;
-        // qfall's reduce_by_poly underflows on the zero polynomial,
-        // which occurs when gamma or the entry is zero. A zero product
-        // is already reduced. Report: "The Proof Layer".
+        // Zero is already reduced; see "The Proof Layer".
         if prod.get_degree() >= 0 {
             prod.reduce_by_poly(&ring_mod);
         }
@@ -157,10 +179,26 @@ fn norm_inf(v: &MatPolyOverZ, degree: i64) -> Z {
         .norm_l_infty_infty()
 }
 
+fn entries_fit_degree(v: &MatPolyOverZ, degree: i64) -> bool {
+    for row in 0..v.get_num_rows() {
+        for column in 0..v.get_num_columns() {
+            let entry: PolyOverZ = v.get_entry(row, column).unwrap();
+            if entry.get_degree() >= degree {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keys::{PublicKey, key_gen, tests::{toy_com_params, toy_psf}};
+    use crate::keys::{
+        key_gen,
+        tests::{toy_com_params, toy_psf},
+        PublicKey,
+    };
     use crate::tag_function::HashToRing;
     use qfall_math::rational::Q;
 
@@ -174,7 +212,16 @@ mod tests {
     ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "proof-test");
-        let (pk, _) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
+        let (pk, _) = key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::from(2000),
+            toy_com_params(),
+        );
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         let r = pk.ck.sample_randomness(&pk.s_r);
         let c = pk.ck.commit(&m, &r);
@@ -212,13 +259,55 @@ mod tests {
         assert!(!verify_com(&pk, &c, &proof));
     }
 
-    // Regression: a zero witness entry makes gamma * entry the zero
-    // polynomial, which used to underflow inside qfall's reduce_by_poly.
+    #[test]
+    fn response_with_wrong_shape_is_rejected() {
+        let (pk, m, r, c) = setup();
+        let mut proof = prove_com(&pk, &m, &r, &c);
+        proof.z_m = MatPolyOverZ::new(pk.ck.b1.get_num_columns(), 2);
+        assert!(!verify_com(&pk, &c, &proof));
+    }
+
+    #[test]
+    fn response_outside_ring_degree_is_rejected() {
+        let (pk, m, r, c) = setup();
+        let mut proof = prove_com(&pk, &m, &r, &c);
+        let mut entry = PolyOverZ::default();
+        entry.set_coeff(D, 1).unwrap();
+        proof.z_m.set_entry(0, 0, entry).unwrap();
+        assert!(!verify_com(&pk, &c, &proof));
+    }
+
+    #[test]
+    fn commitment_with_wrong_shape_is_rejected() {
+        let (pk, m, r, c) = setup();
+        let proof = prove_com(&pk, &m, &r, &c);
+        let bad_c = MatPolynomialRingZq::from((&MatPolyOverZ::new(1, 2), pk.f.modulus()));
+        assert!(!verify_com(&pk, &bad_c, &proof));
+    }
+
+    #[test]
+    fn commitment_with_wrong_modulus_is_rejected() {
+        let (pk, m, r, c) = setup();
+        let proof = prove_com(&pk, &m, &r, &c);
+        let modulus = qfall_tools::utils::common_moduli::new_anticyclic(D, 509).unwrap();
+        let bad_c = MatPolynomialRingZq::from((&MatPolyOverZ::new(1, 1), &modulus));
+        assert!(!verify_com(&pk, &bad_c, &proof));
+    }
+
     #[test]
     fn prove_handles_zero_witness_entries() {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "proof-zero");
-        let (pk, _) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
+        let (pk, _) = key_gen(
+            f,
+            psf,
+            2,
+            2,
+            Q::from(3),
+            Z::from(16),
+            Z::from(2000),
+            toy_com_params(),
+        );
         let zero_m = MatPolyOverZ::new(2, 1);
         let zero_r = MatPolyOverZ::new(2, 1);
         let c = pk.ck.commit(&zero_m, &zero_r);
