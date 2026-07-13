@@ -1,6 +1,8 @@
 # LaZer integration profile
 
 The integration is pinned to the commit stored in `LAZER_REVISION`.
+The Docker build reads this file directly, so the revision is not repeated in
+the build recipe or the generated parameter header.
 
 `params_d64.py` is the source profile for the commitment proof relation
 

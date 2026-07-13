@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 # Report: "LaZer Integration Feasibility".
 
-FROM --platform=linux/amd64 ubuntu:24.04 AS build
+ARG LAZER_PLATFORM=linux/amd64
+
+FROM --platform=${LAZER_PLATFORM} ubuntu:24.04 AS build
 
 RUN apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
@@ -9,9 +11,11 @@ RUN apt-get update -qq \
        make patch unzip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git init /src/lazer \
+RUN --mount=type=bind,source=lazer/LAZER_REVISION,target=/tmp/LAZER_REVISION \
+    revision="$(cat /tmp/LAZER_REVISION)" \
+    && git init /src/lazer \
     && git -C /src/lazer remote add origin https://github.com/lazer-crypto/lazer.git \
-    && git -C /src/lazer fetch --depth 1 origin 2fa3dfb1de7cf5d7f70ed34dd101d8863c624cfe \
+    && git -C /src/lazer fetch --depth 1 origin "$revision" \
     && git -C /src/lazer checkout --detach FETCH_HEAD \
     && git -C /src/lazer submodule update --init --recursive
 
@@ -19,7 +23,7 @@ WORKDIR /src/lazer
 
 RUN make CC=gcc-14 CXX=g++-14 lib-static
 
-FROM --platform=linux/amd64 rust:1.93-bookworm AS rust-runner
+FROM --platform=${LAZER_PLATFORM} rust:1.93-bookworm AS rust-runner
 
 RUN apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
