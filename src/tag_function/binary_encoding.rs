@@ -1,7 +1,7 @@
 //! The binary-encoding tag function of BLNS, Section 3.1.2.
 //! Report: "Instantiations of f".
 
-use super::{TagFunction, assert_tag_in_domain};
+use super::{assert_tag_in_domain, TagFunction};
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq, ModulusPolynomialRingZq};
 use qfall_math::traits::{FromCoefficientEmbedding, MatrixSetEntry, Pow};
@@ -16,13 +16,10 @@ pub struct BinaryEncoding {
 }
 
 impl BinaryEncoding {
-    /// Samples `B` uniformly; supports `t` in `[1, 62]`.
+    /// Samples `B` uniformly for a positive encoding length `t`.
     pub fn new(rows: i64, t: i64, modulus: ModulusPolynomialRingZq) -> Self {
         assert!(rows >= 1, "module rank n must be at least 1");
-        assert!(
-            (1..=62).contains(&t),
-            "the prototype supports t in [1, 62] (N = 2^t fits in i64)",
-        );
+        assert!(t >= 1, "encoding length t must be at least 1");
         let d = modulus.get_degree();
         let b_mat = MatZq::sample_uniform(rows * d, t, modulus.get_q());
         Self {
@@ -34,10 +31,15 @@ impl BinaryEncoding {
     }
 
     fn encode(&self, x: &Z) -> MatZ {
-        let value = i64::try_from(&(x - Z::ONE)).unwrap();
+        let bits = (x - Z::ONE).to_bits();
         let mut enc = MatZ::new(self.t, 1);
         for i in 0..self.t {
-            enc.set_entry(i, 0, (value >> i) & 1).unwrap();
+            enc.set_entry(
+                i,
+                0,
+                u8::from(bits.get(i as usize).copied().unwrap_or(false)),
+            )
+            .unwrap();
         }
         enc
     }
@@ -76,6 +78,9 @@ mod tests {
     const Q: u64 = 257;
     const N_ROWS: i64 = 2;
     const T: i64 = 10;
+    const PAPER_ALT_D: i64 = 1024;
+    const PAPER_ALT_Q: u64 = 33_641;
+    const PAPER_ALT_T: i64 = 256;
 
     fn setup() -> BinaryEncoding {
         BinaryEncoding::new(N_ROWS, T, new_anticyclic(D, Q).unwrap())
@@ -124,5 +129,19 @@ mod tests {
     #[should_panic(expected = "outside the domain")]
     fn tag_above_n_rejected() {
         setup().eval(&Z::from(1025));
+    }
+
+    #[test]
+    fn paper_alternative_profile_supports_full_tag_domain() {
+        let f = BinaryEncoding::new(
+            1,
+            PAPER_ALT_T,
+            new_anticyclic(PAPER_ALT_D, PAPER_ALT_Q).unwrap(),
+        );
+        let largest_tag = Z::from(2).pow(PAPER_ALT_T).unwrap();
+        let image = f.eval(&largest_tag);
+        assert_eq!(largest_tag, f.domain_size());
+        assert_eq!(1, image.get_num_rows());
+        assert_eq!(1, image.get_num_columns());
     }
 }
