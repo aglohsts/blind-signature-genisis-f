@@ -1,5 +1,6 @@
 //! Demo: full protocol run for both tag functions. Toy parameters;
-//! the proof layer is a transparent placeholder.
+//! pi_com is a Fiat-Shamir proof, pi_sig is a transparent
+//! placeholder.
 
 use blind_sig::issue::{signer_respond, user_check, user_commit};
 use blind_sig::keys::key_gen;
@@ -47,10 +48,10 @@ fn run_protocol<F: TagFunction>(label: &str, f: F, psf: PSFGPVRing) {
 
     let m = MatPolyOverZ::sample_uniform(ELL_M, 1, D - 1, 0, 2).unwrap();
     let (msg, st) = user_commit(&pk, &m);
-    println!("Step 1: user sends the commitment c = {}", msg.c);
+    println!("Step 1: user sends the commitment c and the proof pi_com");
 
     let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
-    println!("Step 2: signer returns the tag x = {}", resp.x);
+    println!("Step 2: signer verified pi_com and returns the tag x = {}", resp.x);
 
     let ok = user_check(&pk, &st, &resp);
     println!("Step 3: user check passed: {ok}");
@@ -62,7 +63,7 @@ fn run_protocol<F: TagFunction>(label: &str, f: F, psf: PSFGPVRing) {
 fn main() {
     println!("== blind-sig full protocol demo (toy parameters) ==");
     println!("ring: R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank n = 1");
-    println!("NOTE: the proof layer is a transparent placeholder.\n");
+    println!("NOTE: pi_sig is a transparent placeholder.\n");
 
     let psf = toy_psf();
     let f_hash = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "blind-sig-demo");

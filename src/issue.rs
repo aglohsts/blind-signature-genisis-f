@@ -1,19 +1,21 @@
 //! The two-round issuing protocol:
 //! `User --(c, pi_com)--> Signer --(x, s)--> User`.
-//! The proof pi_com is a stage-3 placeholder, so the signer accepts
-//! every well-formed first message at this stage.
-//! Report: "The Commitment and the Protocol Layer".
+//! Report: "The Commitment and the Protocol Layer" and "The Proof
+//! Layer".
 
 use crate::keys::{PublicKey, SecretKey};
+use crate::proof_com::{ComProof, prove_com, verify_com};
 use crate::tag_function::TagFunction;
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::PSF;
 
-/// The first protocol message: the commitment `c`.
+/// The first protocol message: the commitment `c` and the proof
+/// `pi_com` of a short opening.
 pub struct UserCommitMessage {
     pub c: MatPolynomialRingZq,
+    pub proof: ComProof,
 }
 
 /// The user state kept between the two rounds.
@@ -29,8 +31,8 @@ pub struct SignerResponse {
     pub s: MatPolyOverZ,
 }
 
-/// Step 1: checks the message space, samples `r <- chi_r`, and
-/// commits.
+/// Step 1: checks the message space, samples `r <- chi_r`, commits,
+/// and proves knowledge of the opening.
 pub fn user_commit<F: TagFunction>(
     pk: &PublicKey<F>,
     m: &MatPolyOverZ,
@@ -42,8 +44,12 @@ pub fn user_commit<F: TagFunction>(
     );
     let r = pk.ck.sample_randomness(&pk.s_r);
     let c = pk.ck.commit(m, &r);
+    let proof = prove_com(pk, m, &r, &c);
     (
-        UserCommitMessage { c: c.clone() },
+        UserCommitMessage {
+            c: c.clone(),
+            proof,
+        },
         UserState {
             m: m.clone(),
             r,
@@ -52,14 +58,17 @@ pub fn user_commit<F: TagFunction>(
     )
 }
 
-/// Step 2: samples `x <- [N]` and a preimage for `f(x) + c`; returns
-/// `None` when the preimage fails the norm bound (signer abort).
+/// Step 2: verifies `pi_com`, then samples `x <- [N]` and a preimage
+/// for `f(x) + c`; returns `None` when the proof fails or the
+/// preimage fails the norm bound (signer abort).
 pub fn signer_respond<F: TagFunction>(
     pk: &PublicKey<F>,
     sk: &SecretKey,
     msg: &UserCommitMessage,
 ) -> Option<SignerResponse> {
-    // pi_com verification: stage 3.
+    if !verify_com(pk, &msg.c, &msg.proof) {
+        return None;
+    }
     let upper = &pk.f.domain_size() + &Z::ONE;
     let x = Z::sample_uniform(Z::ONE, upper).unwrap();
     let target = &pk.f.eval(&x) + &msg.c;
@@ -137,6 +146,14 @@ mod tests {
         let mut resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
         resp.s = &resp.s + &resp.s;
         assert!(!user_check(&pk, &st, &resp));
+    }
+
+    #[test]
+    fn invalid_proof_makes_the_signer_abort() {
+        let (pk, sk, m) = setup();
+        let (mut msg, _) = user_commit(&pk, &m);
+        msg.proof.z_m = &msg.proof.z_m + &msg.proof.z_m;
+        assert!(signer_respond(&pk, &sk, &msg).is_none());
     }
 
     #[test]
