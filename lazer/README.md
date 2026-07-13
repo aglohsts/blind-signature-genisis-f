@@ -36,13 +36,51 @@ The resulting layout is:
 
 ```text
 .lazer/include/lazer.h
+.lazer/include/src/moduli.h
 .lazer/lib/liblazer.a
 .lazer/lib/libhexl.a
 .lazer/metadata/LAZER_REVISION
 ```
 
-For Cargo builds, use `.lazer/lib` as both `LAZER_LIB_DIR` and
-`LAZER_HEXL_LIB_DIR`.
+For Cargo builds, set `LAZER_INCLUDE_DIR=.lazer/include` and use `.lazer/lib`
+as both `LAZER_LIB_DIR` and `LAZER_HEXL_LIB_DIR`. The `lazer-ffi` feature then
+compiles `shim.c`, links the exported libraries, and exposes the fixed profile
+through `blind_sig::lazer_ffi`.
+
+The shim accepts four matrix/witness polynomials and owns all LaZer-specific
+types. It pads the generated profile's other six columns with zero, validates
+the checked-in message/randomness bounds, and prevents the verifier from
+passing a short proof to LaZer's lengthless decoder. LaZer's parameter length
+is treated as a fixed 16,166-byte transport buffer: unused bytes after its
+variable-length encoding are zeroed and checked as canonical padding.
+
+## Run the Rust integration tests
+
+Build the reusable Linux/AMD64 runner, which contains the pinned LaZer build
+and the native libraries needed by qFALL:
+
+```sh
+docker build --platform linux/amd64 \
+  --file lazer/Dockerfile \
+  --target rust-runner \
+  --tag blind-sig-lazer-rust \
+  .
+```
+
+From the project root, mount the working tree and two persistent Cargo caches:
+
+```sh
+docker run --rm --platform linux/amd64 \
+  --volume "$PWD:/project" \
+  --volume blind-sig-cargo-registry:/usr/local/cargo/registry \
+  --volume blind-sig-cargo-target:/cargo-target \
+  blind-sig-lazer-rust
+```
+
+The first qFALL/FLINT build can take around 20 minutes. Later runs reuse the
+named Docker volumes. The runner overrides the ignored, machine-specific
+`.cargo/config.toml`, so an Apple Silicon host still builds the Linux/AMD64
+target used by LaZer.
 
 ## Regenerate the parameters
 
