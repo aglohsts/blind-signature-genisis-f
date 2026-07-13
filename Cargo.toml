@@ -3,9 +3,17 @@ name = "blind-sig"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+lazer-ffi = []
+
 [dependencies]
 qfall-math = "0.1.1"
 qfall-schemes = "0.1.0"
 qfall-tools = "0.1.0"
 
+[[bin]]
+name = "lazer-ffi-smoke"
+path = "src/bin/lazer_ffi_smoke.rs"
+required-features = ["lazer-ffi"]
 

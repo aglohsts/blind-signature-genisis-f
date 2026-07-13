@@ -5,6 +5,8 @@
 pub mod commitment;
 pub mod issue;
 pub mod keys;
+#[cfg(feature = "lazer-ffi")]
+pub mod lazer_ffi;
 pub mod proof_com;
 pub mod signature;
 pub mod tag_function;

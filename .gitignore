@@ -3,6 +3,7 @@
 **/*.rs.bk
 *.profraw
 /coverage/
+/.lazer/
 
 # Machine-specific Cargo configuration
 /.cargo/config.toml
