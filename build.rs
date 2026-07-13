@@ -17,6 +17,10 @@ fn required_dir(name: &str) -> PathBuf {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=lazer/shim.c");
+    println!("cargo:rerun-if-changed=lazer/shim.h");
+    println!("cargo:rerun-if-changed=lazer/params_d64.h");
+    println!("cargo:rerun-if-env-changed=LAZER_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=LAZER_LIB_DIR");
     println!("cargo:rerun-if-env-changed=LAZER_HEXL_LIB_DIR");
 
@@ -24,8 +28,18 @@ fn main() {
         return;
     }
 
+    let include_dir = required_dir("LAZER_INCLUDE_DIR");
     let lazer_dir = required_dir("LAZER_LIB_DIR");
     let hexl_dir = required_dir("LAZER_HEXL_LIB_DIR");
+
+    cc::Build::new()
+        .file("lazer/shim.c")
+        .include(include_dir)
+        .include("lazer")
+        .flag_if_supported("-std=c11")
+        .flag_if_supported("-pthread")
+        .warnings(true)
+        .compile("blind_sig_lazer_shim");
 
     println!("cargo:rustc-link-search=native={}", lazer_dir.display());
     println!("cargo:rustc-link-search=native={}", hexl_dir.display());

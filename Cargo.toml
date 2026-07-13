@@ -12,8 +12,10 @@ qfall-math = "0.1.1"
 qfall-schemes = "0.1.0"
 qfall-tools = "0.1.0"
 
+[build-dependencies]
+cc = "1.2.56"
+
 [[bin]]
 name = "lazer-ffi-smoke"
 path = "src/bin/lazer_ffi_smoke.rs"
 required-features = ["lazer-ffi"]
-
