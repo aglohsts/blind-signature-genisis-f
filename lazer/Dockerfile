@@ -22,6 +22,7 @@ RUN make CC=gcc-14 CXX=g++-14 lib-static
 FROM scratch AS library-artifacts
 
 COPY --from=build /src/lazer/lazer.h /include/lazer.h
+COPY --from=build /src/lazer/src/moduli.h /include/src/moduli.h
 COPY --from=build /src/lazer/liblazer.a /lib/liblazer.a
 COPY --from=build /src/lazer/third_party/hexl-development/build/hexl/lib/libhexl.a /lib/libhexl.a
 COPY lazer/LAZER_REVISION /metadata/LAZER_REVISION
