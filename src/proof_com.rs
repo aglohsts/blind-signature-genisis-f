@@ -7,8 +7,11 @@ use crate::tag_function::TagFunction;
 use crate::util::norm_inf;
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
-use qfall_math::traits::{MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient};
+use qfall_math::traits::{
+    GetCoefficient, MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient,
+};
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
+use std::fmt::Write;
 
 /// Parameters of the proof: the assumed bound on the witness
 /// coefficients and the bound on the masking coefficients.
@@ -141,7 +144,7 @@ fn challenge<F: TagFunction>(
     t: &MatPolynomialRingZq,
 ) -> PolyOverZ {
     let degree = pk.f.modulus().get_degree();
-    let input = format!("pi_com|{}|{}|{}|{}", pk.ck.b1, pk.ck.b2, c, t);
+    let input = challenge_transcript(pk, c, t);
     let digest =
         hash_to_mat_zq_sha256(&input, degree, 1, 3).get_representative_least_nonnegative_residue();
     let mut gamma = PolyOverZ::default();
@@ -150,6 +153,54 @@ fn challenge<F: TagFunction>(
         gamma.set_coeff(i, &v - Z::ONE).unwrap();
     }
     gamma
+}
+
+fn challenge_transcript<F: TagFunction>(
+    pk: &PublicKey<F>,
+    c: &MatPolynomialRingZq,
+    t: &MatPolynomialRingZq,
+) -> String {
+    let modulus = pk.f.modulus();
+    let degree = modulus.get_degree();
+    let mut transcript = String::from("blind-sig/pi_com/v1");
+    append_integer(&mut transcript, &modulus.get_q());
+    append_polynomial(
+        &mut transcript,
+        &modulus.get_representative_least_nonnegative_residue(),
+        degree + 1,
+    );
+    for matrix in [&pk.ck.b1, &pk.ck.b2, c, t] {
+        append_ring_matrix(&mut transcript, matrix, degree);
+    }
+    transcript
+}
+
+fn append_ring_matrix(transcript: &mut String, matrix: &MatPolynomialRingZq, degree: i64) {
+    append_decimal(transcript, &matrix.get_num_rows().to_string());
+    append_decimal(transcript, &matrix.get_num_columns().to_string());
+    let representative = matrix.get_representative_least_nonnegative_residue();
+    for row in 0..matrix.get_num_rows() {
+        for column in 0..matrix.get_num_columns() {
+            let polynomial: PolyOverZ = representative.get_entry(row, column).unwrap();
+            append_polynomial(transcript, &polynomial, degree);
+        }
+    }
+}
+
+fn append_polynomial(transcript: &mut String, polynomial: &PolyOverZ, length: i64) {
+    for index in 0..length {
+        let coefficient: Z = polynomial.get_coeff(index).unwrap();
+        append_integer(transcript, &coefficient);
+    }
+}
+
+fn append_integer(transcript: &mut String, value: &Z) {
+    append_decimal(transcript, &value.to_string());
+}
+
+fn append_decimal(transcript: &mut String, value: &str) {
+    write!(transcript, "{}:", value.len()).unwrap();
+    transcript.push_str(value);
 }
 
 /// Multiplies every entry of `v` by `gamma` in `Z[X]/(X^d + 1)`.
@@ -224,6 +275,33 @@ mod tests {
         let (pk, m, r, c) = setup();
         let proof = prove_com(&pk, &m, &r, &c);
         assert!(verify_com(&pk, &c, &proof));
+    }
+
+    #[test]
+    fn canonical_transcript_reduces_ring_coefficients() {
+        let (pk, _, _, _) = setup();
+        let modulus = pk.f.modulus();
+        let mut low = MatPolyOverZ::new(1, 1);
+        let mut high = MatPolyOverZ::new(1, 1);
+        low.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        high.set_entry(0, 0, PolyOverZ::from(258)).unwrap();
+        let low = MatPolynomialRingZq::from((&low, modulus));
+        let high = MatPolynomialRingZq::from((&high, modulus));
+        assert_eq!(
+            challenge_transcript(&pk, &low, &low),
+            challenge_transcript(&pk, &high, &high),
+        );
+    }
+
+    #[test]
+    fn transcript_fields_are_unambiguous() {
+        let mut first = String::new();
+        append_decimal(&mut first, "1");
+        append_decimal(&mut first, "23");
+        let mut second = String::new();
+        append_decimal(&mut second, "12");
+        append_decimal(&mut second, "3");
+        assert_ne!(first, second);
     }
 
     #[test]
