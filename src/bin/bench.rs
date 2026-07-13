@@ -77,8 +77,11 @@ fn bench<F: TagFunction>(label: &str, f: F) {
     let t_respond = time_ms(REPS, || signer_respond(&pk, &sk, &msg).unwrap());
     let resp = signer_respond(&pk, &sk, &msg).unwrap();
     let t_check = time_ms(REPS, || user_check(&pk, &st, &resp));
-    let (st2, resp2) = (user_commit(&pk, &m).1, signer_respond(&pk, &sk, &msg).unwrap());
+    let (msg2, st2) = user_commit(&pk, &m);
+    let resp2 = signer_respond(&pk, &sk, &msg2).unwrap();
+    assert!(user_check(&pk, &st2, &resp2));
     let sig = finalize(st2, resp2);
+    assert!(verify(&pk, &m, &sig));
     let t_verify = time_ms(REPS, || verify(&pk, &m, &sig));
 
     println!("timings (mean, ms):");
@@ -96,8 +99,7 @@ fn bench<F: TagFunction>(label: &str, f: F) {
     let m_cols = pk.a.get_num_columns();
 
     let c_bytes = packed_bytes(D, q_bits);
-    let proof_bytes =
-        packed_bytes(D, 2) + packed_bytes((ELL_M + ELL_R) * D, z_bits);
+    let proof_bytes = packed_bytes(D, 2) + packed_bytes((ELL_M + ELL_R) * D, z_bits);
     let resp_bytes = packed_bytes(m_cols * D, s_bits) + (n_bits as i64 + 7) / 8;
     let sig_bytes = packed_bytes(m_cols * D, s_bits)
         + packed_bytes(ELL_R * D, r_bits)
