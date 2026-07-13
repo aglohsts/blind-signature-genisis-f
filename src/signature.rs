@@ -49,10 +49,13 @@ pub fn verify<F: TagFunction>(
 mod tests {
     use super::*;
     use crate::issue::{signer_respond, user_check, user_commit};
-    use crate::keys::{PublicKey, SecretKey, key_gen, tests::{toy_com_params, toy_psf}};
+    use crate::keys::{
+        key_gen,
+        tests::{toy_key_gen_params, toy_psf},
+        PublicKey, SecretKey,
+    };
     use crate::tag_function::HashToRing;
     use qfall_math::integer::PolyOverZ;
-    use qfall_math::rational::Q;
     use qfall_math::traits::MatrixSetEntry;
 
     const D: i64 = 8;
@@ -61,7 +64,7 @@ mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "sig-test");
-        let (pk, sk) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (pk, sk, m)
     }

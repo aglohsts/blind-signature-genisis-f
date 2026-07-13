@@ -238,11 +238,10 @@ mod tests {
     use super::*;
     use crate::keys::{
         key_gen,
-        tests::{toy_com_params, toy_psf},
+        tests::{toy_key_gen_params, toy_psf},
         PublicKey,
     };
     use crate::tag_function::HashToRing;
-    use qfall_math::rational::Q;
 
     const D: i64 = 8;
 
@@ -254,16 +253,7 @@ mod tests {
     ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "proof-test");
-        let (pk, _) = key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::from(2000),
-            toy_com_params(),
-        );
+        let (pk, _) = key_gen(f, psf, toy_key_gen_params(2000));
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         let r = pk.ck.sample_randomness(&pk.s_r);
         let c = pk.ck.commit(&m, &r);
@@ -367,16 +357,7 @@ mod tests {
     fn prove_handles_zero_witness_entries() {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "proof-zero");
-        let (pk, _) = key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::from(2000),
-            toy_com_params(),
-        );
+        let (pk, _) = key_gen(f, psf, toy_key_gen_params(2000));
         let zero_m = MatPolyOverZ::new(2, 1);
         let zero_r = MatPolyOverZ::new(2, 1);
         let c = pk.ck.commit(&zero_m, &zero_r);

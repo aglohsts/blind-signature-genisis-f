@@ -2,7 +2,7 @@
 //! Toy parameters; run with --release. Report: "Evaluation".
 
 use blind_sig::issue::{signer_respond, user_check, user_commit};
-use blind_sig::keys::key_gen;
+use blind_sig::keys::{key_gen, KeyGenParams};
 use blind_sig::proof_com::ComProofParams;
 use blind_sig::signature::{finalize, verify};
 use blind_sig::tag_function::{BinaryEncoding, HashToRing, TagFunction};
@@ -35,6 +35,17 @@ fn com_params() -> ComProofParams {
     }
 }
 
+fn key_gen_params() -> KeyGenParams {
+    KeyGenParams {
+        ell_m: ELL_M,
+        ell_r: ELL_R,
+        s_r: Q::from(3),
+        beta_msg_sqrd: Z::from(16),
+        beta_r_sqrd: Z::from(2000),
+        com_params: com_params(),
+    }
+}
+
 fn time_ms<T>(reps: u32, mut f: impl FnMut() -> T) -> f64 {
     let start = Instant::now();
     for _ in 0..reps {
@@ -58,16 +69,7 @@ fn packed_bytes(coeffs: i64, bits: u32) -> i64 {
 
 fn bench<F: TagFunction>(label: &str, f: F) {
     println!("--- {label} ---");
-    let (pk, sk) = key_gen(
-        f,
-        toy_psf(),
-        ELL_M,
-        ELL_R,
-        Q::from(3),
-        Z::from(16),
-        Z::from(2000),
-        com_params(),
-    );
+    let (pk, sk) = key_gen(f, toy_psf(), key_gen_params());
     let m = MatPolyOverZ::sample_uniform(ELL_M, 1, D - 1, 0, 2).unwrap();
 
     let x_probe = Z::from(3);
@@ -117,16 +119,7 @@ fn main() {
     let t_keygen = time_ms(REPS, || {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "bench");
-        key_gen(
-            f,
-            psf,
-            ELL_M,
-            ELL_R,
-            Q::from(3),
-            Z::from(16),
-            Z::from(2000),
-            com_params(),
-        )
+        key_gen(f, psf, key_gen_params())
     });
     println!("  key generation      : {t_keygen:8.2}\n");
 

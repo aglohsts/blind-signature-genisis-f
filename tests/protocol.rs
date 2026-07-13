@@ -2,9 +2,9 @@
 //! Report: "Evaluation", functional correctness.
 
 use blind_sig::issue::{signer_respond, user_check, user_commit};
-use blind_sig::keys::{PublicKey, SecretKey, key_gen};
+use blind_sig::keys::{key_gen, KeyGenParams, PublicKey, SecretKey};
 use blind_sig::proof_com::ComProofParams;
-use blind_sig::signature::{TransparentSignature, finalize, verify};
+use blind_sig::signature::{finalize, verify, TransparentSignature};
 use blind_sig::tag_function::{BinaryEncoding, HashToRing, TagFunction};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::rational::Q;
@@ -28,14 +28,16 @@ fn keys<F: TagFunction>(f: F) -> (PublicKey<F>, SecretKey) {
     key_gen(
         f,
         toy_psf(),
-        ELL_M,
-        ELL_R,
-        Q::from(3),
-        Z::from(16),
-        Z::from(2000),
-        ComProofParams {
-            witness_inf: 20,
-            mask_inf: 8000,
+        KeyGenParams {
+            ell_m: ELL_M,
+            ell_r: ELL_R,
+            s_r: Q::from(3),
+            beta_msg_sqrd: Z::from(16),
+            beta_r_sqrd: Z::from(2000),
+            com_params: ComProofParams {
+                witness_inf: 20,
+                mask_inf: 8000,
+            },
         },
     )
 }

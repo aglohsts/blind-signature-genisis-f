@@ -104,11 +104,10 @@ mod tests {
     use super::*;
     use crate::keys::{
         key_gen,
-        tests::{toy_com_params, toy_psf},
+        tests::{toy_key_gen_params, toy_psf},
         PublicKey,
     };
     use crate::tag_function::HashToRing;
-    use qfall_math::rational::Q;
     use qfall_math::traits::MatrixDimensions;
 
     const D: i64 = 8;
@@ -116,16 +115,7 @@ mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "issue-test");
-        let (pk, sk) = key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::from(2000),
-            toy_com_params(),
-        );
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
         let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (pk, sk, m)
     }

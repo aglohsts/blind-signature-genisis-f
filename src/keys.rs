@@ -26,17 +26,22 @@ pub struct SecretKey {
     pub trapdoor: (MatPolyOverZ, MatPolyOverZ),
 }
 
+/// Public parameters used to generate the commitment part of a key.
+pub struct KeyGenParams {
+    pub ell_m: i64,
+    pub ell_r: i64,
+    pub s_r: Q,
+    pub beta_msg_sqrd: Z,
+    pub beta_r_sqrd: Z,
+    pub com_params: ComProofParams,
+}
+
 /// Runs key generation; panics if the moduli of `f` and the trapdoor
 /// parameters differ, or if `f` does not have module rank 1.
 pub fn key_gen<F: TagFunction>(
     f: F,
     psf: PSFGPVRing,
-    ell_m: i64,
-    ell_r: i64,
-    s_r: Q,
-    beta_msg_sqrd: Z,
-    beta_r_sqrd: Z,
-    com_params: ComProofParams,
+    params: KeyGenParams,
 ) -> (PublicKey<F>, SecretKey) {
     assert_eq!(
         &psf.gp.modulus,
@@ -49,37 +54,37 @@ pub fn key_gen<F: TagFunction>(
         "the ring-setting prototype supports module rank n = 1 only",
     );
     assert!(
-        s_r > Q::ZERO,
+        params.s_r > Q::ZERO,
         "the randomness Gaussian width must be positive"
     );
     assert!(
-        beta_msg_sqrd >= Z::ZERO,
+        params.beta_msg_sqrd >= Z::ZERO,
         "the message squared-norm bound must be non-negative",
     );
     assert!(
-        beta_r_sqrd > Z::ZERO,
+        params.beta_r_sqrd > Z::ZERO,
         "the randomness squared-norm bound must be positive",
     );
     assert!(
-        com_params.witness_inf > 0,
+        params.com_params.witness_inf > 0,
         "the proof witness bound must be positive",
     );
     assert!(
-        com_params.response_inf(f.modulus().get_degree()) > 0,
+        params.com_params.response_inf(f.modulus().get_degree()) > 0,
         "the proof response bound must be positive",
     );
     let (a, trapdoor) = psf.trap_gen();
-    let ck = CommitmentKey::generate(ell_m, ell_r, f.modulus());
+    let ck = CommitmentKey::generate(params.ell_m, params.ell_r, f.modulus());
     (
         PublicKey {
             a,
             ck,
             f,
             psf,
-            s_r,
-            beta_msg_sqrd,
-            beta_r_sqrd,
-            com_params,
+            s_r: params.s_r,
+            beta_msg_sqrd: params.beta_msg_sqrd,
+            beta_r_sqrd: params.beta_r_sqrd,
+            com_params: params.com_params,
         },
         SecretKey { trapdoor },
     )
@@ -102,6 +107,17 @@ pub(crate) mod tests {
         }
     }
 
+    pub(crate) fn toy_key_gen_params(beta_r_sqrd: i64) -> KeyGenParams {
+        KeyGenParams {
+            ell_m: 2,
+            ell_r: 2,
+            s_r: Q::from(3),
+            beta_msg_sqrd: Z::from(16),
+            beta_r_sqrd: Z::from(beta_r_sqrd),
+            com_params: toy_com_params(),
+        }
+    }
+
     pub(crate) fn toy_psf() -> PSFGPVRing {
         PSFGPVRing {
             gp: GadgetParametersRing::init_default(D, Q_MOD),
@@ -113,16 +129,7 @@ pub(crate) mod tests {
     fn setup() -> (PublicKey<HashToRing>, SecretKey) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "keys-test");
-        key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::from(300),
-            toy_com_params(),
-        )
+        key_gen(f, psf, toy_key_gen_params(300))
     }
 
     #[test]
@@ -148,16 +155,7 @@ pub(crate) mod tests {
         let psf = toy_psf();
         let other_modulus = qfall_tools::utils::common_moduli::new_anticyclic(D, 509).unwrap();
         let f = HashToRing::new(1, 1u64 << 20, other_modulus, "keys-test");
-        key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::from(300),
-            toy_com_params(),
-        );
+        key_gen(f, psf, toy_key_gen_params(300));
     }
 
     #[test]
@@ -165,15 +163,6 @@ pub(crate) mod tests {
     fn non_positive_randomness_bound_rejected() {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "keys-test");
-        key_gen(
-            f,
-            psf,
-            2,
-            2,
-            Q::from(3),
-            Z::from(16),
-            Z::ZERO,
-            toy_com_params(),
-        );
+        key_gen(f, psf, toy_key_gen_params(0));
     }
 }

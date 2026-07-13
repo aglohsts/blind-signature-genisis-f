@@ -3,7 +3,7 @@
 //! placeholder.
 
 use blind_sig::issue::{signer_respond, user_check, user_commit};
-use blind_sig::keys::key_gen;
+use blind_sig::keys::{key_gen, KeyGenParams};
 use blind_sig::proof_com::ComProofParams;
 use blind_sig::signature::{finalize, verify};
 use blind_sig::tag_function::{BinaryEncoding, HashToRing, TagFunction};
@@ -30,14 +30,16 @@ fn run_protocol<F: TagFunction>(label: &str, f: F, psf: PSFGPVRing) {
     let (pk, sk) = key_gen(
         f,
         psf,
-        ELL_M,
-        ELL_R,
-        Q::from(3),
-        Z::from(16),
-        Z::from(2000),
-        ComProofParams {
-            witness_inf: 20,
-            mask_inf: 8000,
+        KeyGenParams {
+            ell_m: ELL_M,
+            ell_r: ELL_R,
+            s_r: Q::from(3),
+            beta_msg_sqrd: Z::from(16),
+            beta_r_sqrd: Z::from(2000),
+            com_params: ComProofParams {
+                witness_inf: 20,
+                mask_inf: 8000,
+            },
         },
     );
     println!(
@@ -51,7 +53,10 @@ fn run_protocol<F: TagFunction>(label: &str, f: F, psf: PSFGPVRing) {
     println!("Step 1: user sends the commitment c and the proof pi_com");
 
     let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
-    println!("Step 2: signer verified pi_com and returns the tag x = {}", resp.x);
+    println!(
+        "Step 2: signer verified pi_com and returns the tag x = {}",
+        resp.x
+    );
 
     let ok = user_check(&pk, &st, &resp);
     println!("Step 3: user check passed: {ok}");
