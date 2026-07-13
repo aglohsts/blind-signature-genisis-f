@@ -140,7 +140,12 @@ fn mul_scalar_negacyclic(gamma: &PolyOverZ, v: &MatPolyOverZ, degree: i64) -> Ma
     for i in 0..v.get_num_rows() {
         let entry: PolyOverZ = v.get_entry(i, 0).unwrap();
         let mut prod = gamma * &entry;
-        prod.reduce_by_poly(&ring_mod);
+        // qfall's reduce_by_poly underflows on the zero polynomial,
+        // which occurs when gamma or the entry is zero. A zero product
+        // is already reduced. Report: "The Proof Layer".
+        if prod.get_degree() >= 0 {
+            prod.reduce_by_poly(&ring_mod);
+        }
         out.set_entry(i, 0, prod).unwrap();
     }
     out
@@ -205,6 +210,20 @@ mod tests {
         let mut proof = prove_com(&pk, &m, &r, &c);
         proof.challenge.set_coeff(0, 5).unwrap();
         assert!(!verify_com(&pk, &c, &proof));
+    }
+
+    // Regression: a zero witness entry makes gamma * entry the zero
+    // polynomial, which used to underflow inside qfall's reduce_by_poly.
+    #[test]
+    fn prove_handles_zero_witness_entries() {
+        let psf = toy_psf();
+        let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "proof-zero");
+        let (pk, _) = key_gen(f, psf, 2, 2, Q::from(3), Z::from(16), Z::from(2000), toy_com_params());
+        let zero_m = MatPolyOverZ::new(2, 1);
+        let zero_r = MatPolyOverZ::new(2, 1);
+        let c = pk.ck.commit(&zero_m, &zero_r);
+        let proof = prove_com(&pk, &zero_m, &zero_r, &c);
+        assert!(verify_com(&pk, &c, &proof));
     }
 
     #[test]
