@@ -1,14 +1,60 @@
-//! Transparent finalisation and verification: the signature carries
-//! the witness (x, s, r) in the clear, as a stage-3 placeholder for
-//! the proof pi_sig. It provides no blindness.
-//! Report: "The Commitment and the Protocol Layer".
+//! Final-signature relations and the transparent pi_sig placeholder.
+//! Report: "The Final-Signature Proof".
 
 use crate::issue::{SignerResponse, UserState};
 use crate::keys::PublicKey;
-use crate::tag_function::TagFunction;
+use crate::tag_function::{BinaryEncoding, TagFunction};
 use crate::util::norm_eucl_sqrd;
-use qfall_math::integer::{MatPolyOverZ, Z};
+use qfall_math::integer::{MatPolyOverZ, MatZ, PolyOverZ, Z};
+use qfall_math::traits::{MatrixDimensions, MatrixGetEntry};
 use qfall_tools::primitive::psf::PSF;
+
+/// The hidden witness for the binary final-signature relation.
+pub struct BinarySignatureWitness {
+    pub tag_encoding: MatZ,
+    pub s: MatPolyOverZ,
+    pub r: MatPolyOverZ,
+}
+
+/// Checks the binary final-signature relation without producing a proof.
+pub fn binary_relation_holds(
+    pk: &PublicKey<BinaryEncoding>,
+    m: &MatPolyOverZ,
+    witness: &BinarySignatureWitness,
+) -> bool {
+    let degree = pk.f.modulus().get_degree();
+    if (m.get_num_rows(), m.get_num_columns()) != (pk.ck.b1.get_num_columns(), 1)
+        || (witness.r.get_num_rows(), witness.r.get_num_columns())
+            != (pk.ck.b2.get_num_columns(), 1)
+        || (witness.s.get_num_rows(), witness.s.get_num_columns()) != (pk.a.get_num_columns(), 1)
+        || !fits_ring_degree(m, degree)
+        || !fits_ring_degree(&witness.r, degree)
+        || !fits_ring_degree(&witness.s, degree)
+    {
+        return false;
+    }
+    let Some(tag_image) = pk.f.eval_encoding(&witness.tag_encoding) else {
+        return false;
+    };
+
+    norm_eucl_sqrd(&witness.s, degree) > Z::ZERO
+        && pk.psf.check_domain(&witness.s)
+        && norm_eucl_sqrd(m, degree) <= pk.beta_msg_sqrd
+        && norm_eucl_sqrd(&witness.r, degree) <= pk.beta_r_sqrd
+        && pk.psf.f_a(&pk.a, &witness.s) == tag_image + pk.ck.commit(m, &witness.r)
+}
+
+fn fits_ring_degree(vector: &MatPolyOverZ, degree: i64) -> bool {
+    for row in 0..vector.get_num_rows() {
+        for column in 0..vector.get_num_columns() {
+            let polynomial: PolyOverZ = vector.get_entry(row, column).unwrap();
+            if polynomial.get_degree() >= degree {
+                return false;
+            }
+        }
+    }
+    true
+}
 
 /// A transparent signature: the witness of the signing relation.
 pub struct TransparentSignature {
