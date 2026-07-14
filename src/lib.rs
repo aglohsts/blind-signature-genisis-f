@@ -3,6 +3,7 @@
 //! described in the report chapter "Prototype Implementation".
 
 pub mod commitment;
+pub mod commitment_proof;
 pub mod issue;
 pub mod keys;
 #[cfg(feature = "lazer-ffi")]
