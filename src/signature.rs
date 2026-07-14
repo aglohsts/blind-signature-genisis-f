@@ -144,6 +144,24 @@ mod tests {
     }
 
     #[test]
+    fn non_binary_tag_witness_is_rejected() {
+        let psf = toy_psf();
+        let f = BinaryEncoding::new(1, 10, psf.gp.modulus.clone());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
+        let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+        let (msg, st) = user_commit(&pk, &m);
+        let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
+        let mut tag_encoding = pk.f.encode_tag(&resp.x);
+        tag_encoding.set_entry(0, 0, 2).unwrap();
+        let witness = BinarySignatureWitness {
+            tag_encoding,
+            s: resp.s,
+            r: st.r,
+        };
+        assert!(!binary_relation_holds(&pk, &m, &witness));
+    }
+
+    #[test]
     fn honest_signature_verifies() {
         let (pk, sk, m) = setup();
         let sig = honest_signature(&pk, &sk, &m);
