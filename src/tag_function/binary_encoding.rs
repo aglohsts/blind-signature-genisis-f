@@ -4,7 +4,9 @@
 use super::{assert_tag_in_domain, TagFunction};
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq, ModulusPolynomialRingZq};
-use qfall_math::traits::{FromCoefficientEmbedding, MatrixSetEntry, Pow};
+use qfall_math::traits::{
+    FromCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, MatrixSetEntry, Pow,
+};
 
 /// `f(x) = Coeffs^{-1}(B * enc(x))` with uniform `B in Z_q^{nd x t}`,
 /// where `enc(x)` is the binary decomposition of `x - 1` and `N = 2^t`.
@@ -30,7 +32,14 @@ impl BinaryEncoding {
         }
     }
 
-    fn encode(&self, x: &Z) -> MatZ {
+    /// Returns the number of bits in the tag encoding.
+    pub fn encoding_length(&self) -> i64 {
+        self.t
+    }
+
+    /// Returns the canonical binary encoding of `x - 1`.
+    pub fn encode_tag(&self, x: &Z) -> MatZ {
+        assert_tag_in_domain(x, &self.domain_size());
         let bits = (x - Z::ONE).to_bits();
         let mut enc = MatZ::new(self.t, 1);
         for i in 0..self.t {
@@ -42,6 +51,25 @@ impl BinaryEncoding {
             .unwrap();
         }
         enc
+    }
+
+    /// Evaluates a checked binary encoding of a tag.
+    pub fn eval_encoding(&self, encoding: &MatZ) -> Option<MatPolynomialRingZq> {
+        if encoding.get_num_rows() != self.t || encoding.get_num_columns() != 1 {
+            return None;
+        }
+        for row in 0..self.t {
+            let bit: Z = encoding.get_entry(row, 0).unwrap();
+            if bit != Z::ZERO && bit != Z::ONE {
+                return None;
+            }
+        }
+
+        let encoding = MatZq::from((encoding, self.modulus.get_q()));
+        let embedding = (&self.b_mat * &encoding).get_representative_least_nonnegative_residue();
+        let poly_mat =
+            MatPolyOverZ::from_coefficient_embedding((&embedding, self.modulus.get_degree() - 1));
+        Some(MatPolynomialRingZq::from((&poly_mat, &self.modulus)))
     }
 }
 
@@ -59,12 +87,7 @@ impl TagFunction for BinaryEncoding {
     }
 
     fn eval(&self, x: &Z) -> MatPolynomialRingZq {
-        assert_tag_in_domain(x, &self.domain_size());
-        let enc = MatZq::from((&self.encode(x), self.modulus.get_q()));
-        let embedding = (&self.b_mat * &enc).get_representative_least_nonnegative_residue();
-        let poly_mat =
-            MatPolyOverZ::from_coefficient_embedding((&embedding, self.modulus.get_degree() - 1));
-        MatPolynomialRingZq::from((&poly_mat, &self.modulus))
+        self.eval_encoding(&self.encode_tag(x)).unwrap()
     }
 }
 
@@ -106,6 +129,31 @@ mod tests {
         let f = setup();
         let zero = MatPolynomialRingZq::from((&MatPolyOverZ::new(N_ROWS, 1), f.modulus()));
         assert_eq!(zero, f.eval(&Z::ONE));
+    }
+
+    #[test]
+    fn canonical_encoding_uses_x_minus_one() {
+        let f = setup();
+        let encoding = f.encode_tag(&Z::from(6));
+        assert_eq!(Z::ONE, encoding.get_entry(0, 0).unwrap());
+        assert_eq!(Z::ZERO, encoding.get_entry(1, 0).unwrap());
+        assert_eq!(Z::ONE, encoding.get_entry(2, 0).unwrap());
+        assert_eq!(T, f.encoding_length());
+        assert_eq!(Some(f.eval(&Z::from(6))), f.eval_encoding(&encoding));
+    }
+
+    #[test]
+    fn non_binary_encoding_is_rejected() {
+        let f = setup();
+        let mut encoding = f.encode_tag(&Z::from(6));
+        encoding.set_entry(0, 0, 2).unwrap();
+        assert!(f.eval_encoding(&encoding).is_none());
+    }
+
+    #[test]
+    fn encoding_with_wrong_dimensions_is_rejected() {
+        let f = setup();
+        assert!(f.eval_encoding(&MatZ::new(T, 2)).is_none());
     }
 
     #[test]
