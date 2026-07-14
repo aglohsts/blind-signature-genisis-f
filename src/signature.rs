@@ -100,7 +100,7 @@ mod tests {
         tests::{toy_key_gen_params, toy_psf},
         PublicKey, SecretKey,
     };
-    use crate::tag_function::HashToRing;
+    use crate::tag_function::{BinaryEncoding, HashToRing};
     use qfall_math::integer::PolyOverZ;
     use qfall_math::traits::MatrixSetEntry;
 
@@ -124,6 +124,23 @@ mod tests {
         let resp = signer_respond(pk, sk, &msg).expect("signer aborted");
         assert!(user_check(pk, &st, &resp));
         finalize(st, resp)
+    }
+
+    #[test]
+    fn honest_binary_relation_holds() {
+        let psf = toy_psf();
+        let f = BinaryEncoding::new(1, 10, psf.gp.modulus.clone());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
+        let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+        let (msg, st) = user_commit(&pk, &m);
+        let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
+        assert!(user_check(&pk, &st, &resp));
+        let witness = BinarySignatureWitness {
+            tag_encoding: pk.f.encode_tag(&resp.x),
+            s: resp.s,
+            r: st.r,
+        };
+        assert!(binary_relation_holds(&pk, &m, &witness));
     }
 
     #[test]
