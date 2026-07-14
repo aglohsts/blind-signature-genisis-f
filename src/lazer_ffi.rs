@@ -52,6 +52,8 @@ pub enum Error {
         actual: usize,
     },
     InvalidInput,
+    ProfileMismatch(&'static str),
+    CoefficientOutOfRange,
     BufferTooSmall,
     Internal,
     UnexpectedStatus(i32),
@@ -70,6 +72,8 @@ impl fmt::Display for Error {
                 "invalid {name} length: expected {expected}, got {actual}"
             ),
             Self::InvalidInput => write!(f, "LaZer rejected the input or witness bounds"),
+            Self::ProfileMismatch(reason) => write!(f, "LaZer profile mismatch: {reason}"),
+            Self::CoefficientOutOfRange => write!(f, "a coefficient does not fit into i64"),
             Self::BufferTooSmall => write!(f, "LaZer proof output buffer was too small"),
             Self::Internal => write!(f, "LaZer reported an internal error"),
             Self::UnexpectedStatus(status) => write!(f, "unexpected LaZer status {status}"),
