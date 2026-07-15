@@ -277,4 +277,33 @@ mod tests {
             .expect("verify mapped relation")
         );
     }
+
+    #[test]
+    fn coefficient_statement_rejects_altered_scheme_values() {
+        let (pk, message, witness) = profile_fixture();
+
+        let mut altered_message = message.clone();
+        altered_message
+            .set_entry(0, 0, PolyOverZ::from(-2))
+            .unwrap();
+        let inputs = build_inputs(&pk, &altered_message, &witness).expect("altered message");
+        assert!(!binary_relation_holds(&pk, &altered_message, &witness));
+        assert!(!coefficient_relation_holds(&inputs));
+
+        let mut altered_s = BinarySignatureWitness {
+            tag_encoding: witness.tag_encoding.clone(),
+            s: witness.s.clone(),
+            r: witness.r.clone(),
+        };
+        altered_s.s.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        let inputs = build_inputs(&pk, &message, &altered_s).expect("altered preimage");
+        assert!(!binary_relation_holds(&pk, &message, &altered_s));
+        assert!(!coefficient_relation_holds(&inputs));
+
+        let mut altered_r = witness;
+        altered_r.r.set_entry(0, 0, PolyOverZ::from(2)).unwrap();
+        let inputs = build_inputs(&pk, &message, &altered_r).expect("altered randomness");
+        assert!(!binary_relation_holds(&pk, &message, &altered_r));
+        assert!(!coefficient_relation_holds(&inputs));
+    }
 }
