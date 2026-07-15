@@ -4,6 +4,12 @@ The integration is pinned to the commit stored in `LAZER_REVISION`.
 The Docker build reads this file directly, so the revision is not repeated in
 the build recipe or the generated parameter header.
 
+The pinned revision stores caller-supplied equations after internal reserved
+slots, but its high-level prover and verifier pass the reserved slots to the
+t-box. The Docker build applies
+`patches/0001-pass-input-equations-to-tbox.patch` so both paths use the
+caller-supplied equations.
+
 `params_d64.py` is the source profile for the commitment proof relation
 
 ```text

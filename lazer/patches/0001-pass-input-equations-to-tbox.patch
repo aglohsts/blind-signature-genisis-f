@@ -1,0 +1,48 @@
+--- a/src/lnp.c
++++ b/src/lnp.c
+@@ -1410,5 +1410,8 @@
+   lnp_tbox_params_srcptr params = state->params;
+   abdlop_params_srcptr tbox = params->tbox;
++  const unsigned int d = tbox->ring->d;
++  const unsigned int lambda = params->quad_eval->lambda;
++  const unsigned int Z = params->Z;
+   uint8_t hash[32], expseed[64];
+   const uint8_t *seedproto = expseed;
+   const uint8_t *seedsubproto = expseed + 32;
+@@ -1451,7 +1454,10 @@
+   lnp_tbox_prove (
+       hash, state->tB, state->h, state->c, state->z1, state->z21, state->hint,
+       state->z3, state->z4, state_->s1, state_->m, state_->s2, state->tA2,
+-      state->A1, state->A2prime, state->Bprime, state->R2, state->r1, state->N,
+-      state->R2prime, state->r1prime, state->r0prime, state->M, state->Es,
++      state->A1, state->A2prime, state->Bprime,
++      state->R2 + QUADEQ_INPUT_OFF, state->r1 + QUADEQ_INPUT_OFF, state->N,
++      state->R2prime + EVALEQ_INPUT_OFF,
++      state->r1prime + EVALEQ_INPUT_OFF,
++      state->r0prime + EVALEQ_INPUT_OFF, state->M, state->Es,
+       state->Em, state->v, state->Ps, state->Pm, state->f, state->Ds,
+       state->Dm, state->u, seedsubproto, params);
+@@ -1478,5 +1484,8 @@
+   lnp_tbox_params_srcptr params = state->params;
+   abdlop_params_srcptr tbox = params->tbox;
++  const unsigned int d = tbox->ring->d;
++  const unsigned int lambda = params->quad_eval->lambda;
++  const unsigned int Z = params->Z;
+   uint8_t hash[32];
+   size_t prooflen;
+   int b;
+@@ -1516,8 +1525,12 @@
+   b = lnp_tbox_verify (
+       hash, state->h, state->c, state->z1, state->z21, state->hint, state->z3,
+       state->z4, state->tA1, state->tB, state->A1, state->A2prime,
+-      state->Bprime, state->R2, state->r1, state->r0, state->N, state->R2prime,
+-      state->r1prime, state->r0prime, state->M, state->Es, state->Em, state->v,
++      state->Bprime, state->R2 + QUADEQ_INPUT_OFF,
++      state->r1 + QUADEQ_INPUT_OFF, state->r0 + QUADEQ_INPUT_OFF, state->N,
++      state->R2prime + EVALEQ_INPUT_OFF,
++      state->r1prime + EVALEQ_INPUT_OFF,
++      state->r0prime + EVALEQ_INPUT_OFF, state->M, state->Es, state->Em,
++      state->v,
+       state->Ps, state->Pm, state->f, state->Ds, state->Dm, state->u, params);
+   if (b != 1)
+     goto ret;

@@ -20,6 +20,9 @@ RUN --mount=type=bind,source=lazer/LAZER_REVISION,target=/tmp/LAZER_REVISION \
     && git -C /src/lazer checkout --detach FETCH_HEAD \
     && git -C /src/lazer submodule update --init --recursive
 
+COPY lazer/patches/0001-pass-input-equations-to-tbox.patch /tmp/lazer.patch
+RUN patch --directory=/src/lazer --strip=1 --input=/tmp/lazer.patch
+
 WORKDIR /src/lazer
 
 RUN make CC=gcc-14 CXX=g++-14 lib-static
