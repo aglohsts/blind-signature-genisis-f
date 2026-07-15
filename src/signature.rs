@@ -102,7 +102,7 @@ mod tests {
     };
     use crate::tag_function::{BinaryEncoding, HashToRing};
     use qfall_math::integer::PolyOverZ;
-    use qfall_math::traits::MatrixSetEntry;
+    use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
 
     const D: i64 = 8;
     const Q_MOD: u64 = 257;
@@ -209,6 +209,46 @@ mod tests {
             r: MatPolyOverZ::new(pk.ck.b2.get_num_columns() + 1, 1),
         };
         assert!(!binary_relation_holds(&pk, &m, &bad_r));
+    }
+
+    #[test]
+    fn binary_relation_rejects_polynomials_outside_ring_degree() {
+        let psf = toy_psf();
+        let f = BinaryEncoding::new(1, 10, psf.gp.modulus.clone());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
+        let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+        let (msg, st) = user_commit(&pk, &m);
+        let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
+        let tag_encoding = pk.f.encode_tag(&resp.x);
+        let mut high_degree = PolyOverZ::default();
+        high_degree.set_coeff(D, 1).unwrap();
+
+        let mut bad_m = m.clone();
+        bad_m.set_entry(0, 0, high_degree.clone()).unwrap();
+        let honest_witness = BinarySignatureWitness {
+            tag_encoding: tag_encoding.clone(),
+            s: resp.s.clone(),
+            r: st.r.clone(),
+        };
+        assert!(!binary_relation_holds(&pk, &bad_m, &honest_witness));
+
+        let mut bad_s = resp.s.clone();
+        bad_s.set_entry(0, 0, high_degree.clone()).unwrap();
+        let bad_s_witness = BinarySignatureWitness {
+            tag_encoding: tag_encoding.clone(),
+            s: bad_s,
+            r: st.r.clone(),
+        };
+        assert!(!binary_relation_holds(&pk, &m, &bad_s_witness));
+
+        let mut bad_r = st.r;
+        bad_r.set_entry(0, 0, high_degree).unwrap();
+        let bad_r_witness = BinarySignatureWitness {
+            tag_encoding,
+            s: resp.s,
+            r: bad_r,
+        };
+        assert!(!binary_relation_holds(&pk, &m, &bad_r_witness));
     }
 
     #[test]
