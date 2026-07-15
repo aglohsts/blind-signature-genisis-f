@@ -9,10 +9,13 @@ use qfall_tools::utils::common_moduli::new_anticyclic;
 
 const MODULUS: u64 = 281_474_976_711_349;
 
-pub(crate) struct LazerD64SignatureInputs {
+pub(crate) struct LazerD64SignatureStatement {
     pub(crate) linear: Vec<i64>,
     pub(crate) tag_matrix: Vec<i64>,
     pub(crate) offset: Vec<i64>,
+}
+
+pub(crate) struct LazerD64SignatureWitness {
     pub(crate) witness: Vec<i64>,
     pub(crate) tag: Vec<i64>,
 }
@@ -21,8 +24,15 @@ pub(crate) fn build_inputs(
     pk: &PublicKey<BinaryEncoding>,
     message: &MatPolyOverZ,
     witness: &BinarySignatureWitness,
-) -> Result<LazerD64SignatureInputs, Error> {
-    validate_profile(pk, message, witness)?;
+) -> Result<(LazerD64SignatureStatement, LazerD64SignatureWitness), Error> {
+    Ok((build_statement(pk, message)?, build_witness(witness)?))
+}
+
+pub(crate) fn build_statement(
+    pk: &PublicKey<BinaryEncoding>,
+    message: &MatPolyOverZ,
+) -> Result<LazerD64SignatureStatement, Error> {
+    validate_statement_profile(pk, message)?;
 
     let mut linear = Vec::with_capacity(lazer_ffi::FINAL_LINEAR_COEFFICIENTS);
     append_ring_matrix(&mut linear, &pk.a, 1)?;
@@ -36,6 +46,18 @@ pub(crate) fn build_inputs(
     let mut offset = Vec::with_capacity(lazer_ffi::FINAL_OFFSET_COEFFICIENTS);
     append_ring_matrix(&mut offset, &message_image, -1)?;
 
+    Ok(LazerD64SignatureStatement {
+        linear,
+        tag_matrix,
+        offset,
+    })
+}
+
+pub(crate) fn build_witness(
+    witness: &BinarySignatureWitness,
+) -> Result<LazerD64SignatureWitness, Error> {
+    validate_witness_profile(witness)?;
+
     let mut witness_coefficients = Vec::with_capacity(lazer_ffi::FINAL_WITNESS_COEFFICIENTS);
     append_integer_matrix(&mut witness_coefficients, &witness.s, 1)?;
     append_integer_matrix(&mut witness_coefficients, &witness.r, 1)?;
@@ -43,19 +65,15 @@ pub(crate) fn build_inputs(
     let mut tag = Vec::with_capacity(lazer_ffi::FINAL_TAG_COEFFICIENTS);
     append_integer_entries(&mut tag, &witness.tag_encoding, 1)?;
 
-    Ok(LazerD64SignatureInputs {
-        linear,
-        tag_matrix,
-        offset,
+    Ok(LazerD64SignatureWitness {
         witness: witness_coefficients,
         tag,
     })
 }
 
-fn validate_profile(
+fn validate_statement_profile(
     pk: &PublicKey<BinaryEncoding>,
     message: &MatPolyOverZ,
-    witness: &BinarySignatureWitness,
 ) -> Result<(), Error> {
     let expected_modulus = new_anticyclic(lazer_ffi::DEGREE as i64, MODULUS).unwrap();
     if pk.f.modulus() != &expected_modulus {
@@ -82,20 +100,29 @@ fn validate_profile(
         ));
     }
     if (message.get_num_rows(), message.get_num_columns()) != (pk.ck.b1.get_num_columns(), 1)
-        || (witness.s.get_num_rows(), witness.s.get_num_columns())
-            != (lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64, 1)
+        || !fits_ring_degree(message, lazer_ffi::DEGREE as i64)
+    {
+        return Err(Error::ProfileMismatch(
+            "the final-signature statement must match the profile layout",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_witness_profile(witness: &BinarySignatureWitness) -> Result<(), Error> {
+    if (witness.s.get_num_rows(), witness.s.get_num_columns())
+        != (lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64, 1)
         || (witness.r.get_num_rows(), witness.r.get_num_columns())
             != (lazer_ffi::FINAL_RANDOMNESS_COLUMNS as i64, 1)
         || (
             witness.tag_encoding.get_num_rows(),
             witness.tag_encoding.get_num_columns(),
         ) != (lazer_ffi::FINAL_TAG_COEFFICIENTS as i64, 1)
-        || !fits_ring_degree(message, lazer_ffi::DEGREE as i64)
         || !fits_ring_degree(&witness.s, lazer_ffi::DEGREE as i64)
         || !fits_ring_degree(&witness.r, lazer_ffi::DEGREE as i64)
     {
         return Err(Error::ProfileMismatch(
-            "the final-signature values must match the profile layout",
+            "the final-signature witness must match the profile layout",
         ));
     }
     Ok(())
@@ -224,14 +251,17 @@ mod tests {
         (pk, message, witness)
     }
 
-    fn coefficient_relation_holds(inputs: &LazerD64SignatureInputs) -> bool {
+    fn coefficient_relation_holds(
+        statement: &LazerD64SignatureStatement,
+        witness: &LazerD64SignatureWitness,
+    ) -> bool {
         let degree = lazer_ffi::DEGREE;
         let modulus = MODULUS as i128;
         (0..degree).all(|row| {
-            let mut residual = inputs.offset[row] as i128;
+            let mut residual = statement.offset[row] as i128;
             for column in 0..lazer_ffi::FINAL_BOUNDED_COLUMNS {
-                let polynomial = &inputs.linear[column * degree..(column + 1) * degree];
-                let value = &inputs.witness[column * degree..(column + 1) * degree];
+                let polynomial = &statement.linear[column * degree..(column + 1) * degree];
+                let value = &witness.witness[column * degree..(column + 1) * degree];
                 for (left, left_value) in polynomial.iter().enumerate() {
                     for (right, right_value) in value.iter().enumerate() {
                         let exponent = left + right;
@@ -243,7 +273,8 @@ mod tests {
                 }
             }
             for bit in 0..lazer_ffi::FINAL_TAG_COEFFICIENTS {
-                residual += inputs.tag_matrix[row * degree + bit] as i128 * inputs.tag[bit] as i128;
+                residual +=
+                    statement.tag_matrix[row * degree + bit] as i128 * witness.tag[bit] as i128;
             }
             residual.rem_euclid(modulus) == 0
         })
@@ -253,33 +284,34 @@ mod tests {
     fn scheme_relation_matches_coefficient_statement() {
         let (pk, message, witness) = profile_fixture();
         assert!(binary_relation_holds(&pk, &message, &witness));
-        let inputs = build_inputs(&pk, &message, &witness).expect("build statement inputs");
-        assert!(coefficient_relation_holds(&inputs));
-        assert_eq!(lazer_ffi::FINAL_LINEAR_COEFFICIENTS, inputs.linear.len());
+        let (statement, witness) =
+            build_inputs(&pk, &message, &witness).expect("build statement inputs");
+        assert!(coefficient_relation_holds(&statement, &witness));
+        assert_eq!(lazer_ffi::FINAL_LINEAR_COEFFICIENTS, statement.linear.len());
         assert_eq!(
             lazer_ffi::FINAL_TAG_MATRIX_COEFFICIENTS,
-            inputs.tag_matrix.len()
+            statement.tag_matrix.len()
         );
-        assert_eq!(lazer_ffi::FINAL_OFFSET_COEFFICIENTS, inputs.offset.len());
-        assert_eq!(lazer_ffi::FINAL_WITNESS_COEFFICIENTS, inputs.witness.len());
-        assert_eq!(lazer_ffi::FINAL_TAG_COEFFICIENTS, inputs.tag.len());
+        assert_eq!(lazer_ffi::FINAL_OFFSET_COEFFICIENTS, statement.offset.len());
+        assert_eq!(lazer_ffi::FINAL_WITNESS_COEFFICIENTS, witness.witness.len());
+        assert_eq!(lazer_ffi::FINAL_TAG_COEFFICIENTS, witness.tag.len());
 
         let ppseed = [7; 32];
         let proof = lazer_ffi::prove_final_signature(
-            &inputs.linear,
-            &inputs.tag_matrix,
-            &inputs.offset,
-            &inputs.witness,
-            &inputs.tag,
+            &statement.linear,
+            &statement.tag_matrix,
+            &statement.offset,
+            &witness.witness,
+            &witness.tag,
             &ppseed,
             Some(&[9; 32]),
         )
         .expect("prove mapped relation");
         assert!(
             lazer_ffi::verify_final_signature(
-                &inputs.linear,
-                &inputs.tag_matrix,
-                &inputs.offset,
+                &statement.linear,
+                &statement.tag_matrix,
+                &statement.offset,
                 &ppseed,
                 &proof,
             )
@@ -295,9 +327,13 @@ mod tests {
         altered_message
             .set_entry(0, 0, PolyOverZ::from(-2))
             .unwrap();
-        let inputs = build_inputs(&pk, &altered_message, &witness).expect("altered message");
+        let (statement, coefficient_witness) =
+            build_inputs(&pk, &altered_message, &witness).expect("altered message");
         assert!(!binary_relation_holds(&pk, &altered_message, &witness));
-        assert!(!coefficient_relation_holds(&inputs));
+        assert!(!coefficient_relation_holds(
+            &statement,
+            &coefficient_witness
+        ));
 
         let mut altered_s = BinarySignatureWitness {
             tag_encoding: witness.tag_encoding.clone(),
@@ -305,15 +341,23 @@ mod tests {
             r: witness.r.clone(),
         };
         altered_s.s.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
-        let inputs = build_inputs(&pk, &message, &altered_s).expect("altered preimage");
+        let (statement, coefficient_witness) =
+            build_inputs(&pk, &message, &altered_s).expect("altered preimage");
         assert!(!binary_relation_holds(&pk, &message, &altered_s));
-        assert!(!coefficient_relation_holds(&inputs));
+        assert!(!coefficient_relation_holds(
+            &statement,
+            &coefficient_witness
+        ));
 
         let mut altered_r = witness;
         altered_r.r.set_entry(0, 0, PolyOverZ::from(2)).unwrap();
-        let inputs = build_inputs(&pk, &message, &altered_r).expect("altered randomness");
+        let (statement, coefficient_witness) =
+            build_inputs(&pk, &message, &altered_r).expect("altered randomness");
         assert!(!binary_relation_holds(&pk, &message, &altered_r));
-        assert!(!coefficient_relation_holds(&inputs));
+        assert!(!coefficient_relation_holds(
+            &statement,
+            &coefficient_witness
+        ));
     }
 
     #[test]
@@ -341,26 +385,27 @@ mod tests {
         pk.beta_msg_sqrd = norm_eucl_sqrd(&message, lazer_ffi::DEGREE as i64);
 
         assert!(binary_relation_holds(&pk, &message, &witness));
-        let inputs = build_inputs(&pk, &message, &witness).expect("non-zero tag inputs");
-        assert!(coefficient_relation_holds(&inputs));
-        assert_eq!(1, inputs.tag[0]);
+        let (statement, witness) =
+            build_inputs(&pk, &message, &witness).expect("non-zero tag inputs");
+        assert!(coefficient_relation_holds(&statement, &witness));
+        assert_eq!(1, witness.tag[0]);
 
         let ppseed = [7; 32];
         let proof = lazer_ffi::prove_final_signature(
-            &inputs.linear,
-            &inputs.tag_matrix,
-            &inputs.offset,
-            &inputs.witness,
-            &inputs.tag,
+            &statement.linear,
+            &statement.tag_matrix,
+            &statement.offset,
+            &witness.witness,
+            &witness.tag,
             &ppseed,
             Some(&[9; 32]),
         )
         .expect("prove non-zero tag relation");
         assert!(
             lazer_ffi::verify_final_signature(
-                &inputs.linear,
-                &inputs.tag_matrix,
-                &inputs.offset,
+                &statement.linear,
+                &statement.tag_matrix,
+                &statement.offset,
                 &ppseed,
                 &proof,
             )
