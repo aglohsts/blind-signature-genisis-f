@@ -157,6 +157,7 @@ mod tests {
     use crate::keys::PublicKey;
     use crate::proof_com::ComProofParams;
     use crate::signature::binary_relation_holds;
+    use crate::util::norm_eucl_sqrd;
     use qfall_math::integer::PolyOverZ;
     use qfall_math::rational::Q;
     use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
@@ -305,5 +306,57 @@ mod tests {
         let inputs = build_inputs(&pk, &message, &altered_r).expect("altered randomness");
         assert!(!binary_relation_holds(&pk, &message, &altered_r));
         assert!(!coefficient_relation_holds(&inputs));
+    }
+
+    #[test]
+    fn nonzero_tag_matches_the_coefficient_statement() {
+        let (mut pk, mut message, mut witness) = profile_fixture();
+        let tag_encoding = pk.f.encode_tag(&Z::from(2));
+        let tag_image = pk.f.eval_encoding(&tag_encoding).unwrap();
+        let tag_polynomial: PolyOverZ = tag_image
+            .get_representative_least_nonnegative_residue()
+            .get_entry(0, 0)
+            .unwrap();
+        let mut cancelling_message = PolyOverZ::default();
+        for index in 0..lazer_ffi::DEGREE as i64 {
+            let coefficient: Z = tag_polynomial.get_coeff(index).unwrap();
+            cancelling_message
+                .set_coeff(index, Z::ZERO - coefficient)
+                .unwrap();
+        }
+        let constant: Z = cancelling_message.get_coeff(0).unwrap();
+        cancelling_message
+            .set_coeff(0, constant - Z::from(3))
+            .unwrap();
+        message.set_entry(0, 0, cancelling_message).unwrap();
+        witness.tag_encoding = tag_encoding;
+        pk.beta_msg_sqrd = norm_eucl_sqrd(&message, lazer_ffi::DEGREE as i64);
+
+        assert!(binary_relation_holds(&pk, &message, &witness));
+        let inputs = build_inputs(&pk, &message, &witness).expect("non-zero tag inputs");
+        assert!(coefficient_relation_holds(&inputs));
+        assert_eq!(1, inputs.tag[0]);
+
+        let ppseed = [7; 32];
+        let proof = lazer_ffi::prove_final_signature(
+            &inputs.linear,
+            &inputs.tag_matrix,
+            &inputs.offset,
+            &inputs.witness,
+            &inputs.tag,
+            &ppseed,
+            Some(&[9; 32]),
+        )
+        .expect("prove non-zero tag relation");
+        assert!(
+            lazer_ffi::verify_final_signature(
+                &inputs.linear,
+                &inputs.tag_matrix,
+                &inputs.offset,
+                &ppseed,
+                &proof,
+            )
+            .expect("verify non-zero tag relation")
+        );
     }
 }
