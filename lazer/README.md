@@ -10,6 +10,11 @@ t-box. The Docker build applies
 `patches/0001-pass-input-equations-to-tbox.patch` so both paths use the
 caller-supplied equations.
 
+The sparse statement encoders also leave the first output byte partly
+uninitialised. The build applies
+`patches/0002-initialise-sparse-encoding.patch` to make transcript hashes
+independent of prior heap contents.
+
 `params_d64.py` is the source profile for the commitment proof relation
 
 ```text

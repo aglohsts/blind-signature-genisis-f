@@ -23,6 +23,9 @@ RUN --mount=type=bind,source=lazer/LAZER_REVISION,target=/tmp/LAZER_REVISION \
 COPY lazer/patches/0001-pass-input-equations-to-tbox.patch /tmp/lazer.patch
 RUN patch --directory=/src/lazer --strip=1 --input=/tmp/lazer.patch
 
+COPY lazer/patches/0002-initialise-sparse-encoding.patch /tmp/lazer-coder.patch
+RUN patch --directory=/src/lazer --strip=1 --input=/tmp/lazer-coder.patch
+
 WORKDIR /src/lazer
 
 RUN make CC=gcc-14 CXX=g++-14 lib-static
