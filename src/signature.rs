@@ -162,6 +162,24 @@ mod tests {
     }
 
     #[test]
+    fn binary_relation_is_bound_to_the_public_message() {
+        let psf = toy_psf();
+        let f = BinaryEncoding::new(1, 10, psf.gp.modulus.clone());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
+        let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+        let (msg, st) = user_commit(&pk, &m);
+        let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
+        let witness = BinarySignatureWitness {
+            tag_encoding: pk.f.encode_tag(&resp.x),
+            s: resp.s,
+            r: st.r,
+        };
+        let mut delta = MatPolyOverZ::new(2, 1);
+        delta.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        assert!(!binary_relation_holds(&pk, &(&m + &delta), &witness));
+    }
+
+    #[test]
     fn honest_signature_verifies() {
         let (pk, sk, m) = setup();
         let sig = honest_signature(&pk, &sk, &m);
