@@ -11,6 +11,69 @@ use crate::util::{norm_eucl_sqrd, norm_inf};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::PSF;
+use std::fmt;
+
+/// Errors that make the signer abort the issuing protocol.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IssueError {
+    InvalidCommitmentProof,
+    TagSamplingFailed,
+    TagOutOfRange,
+    PreimageSamplingFailed,
+    InvalidPreimage,
+}
+
+impl fmt::Display for IssueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidCommitmentProof => write!(f, "the commitment proof is invalid"),
+            Self::TagSamplingFailed => write!(f, "tag sampling failed"),
+            Self::TagOutOfRange => write!(f, "the sampled tag is outside the public domain"),
+            Self::PreimageSamplingFailed => write!(f, "preimage sampling failed"),
+            Self::InvalidPreimage => write!(f, "the sampled preimage is invalid"),
+        }
+    }
+}
+
+impl std::error::Error for IssueError {}
+
+/// Supplies a tag for the signer response.
+pub trait TagSampler {
+    fn sample_tag(&self, domain_size: &Z) -> Result<Z, IssueError>;
+}
+
+/// Samples tags uniformly from the public domain.
+pub struct RandomTagSampler;
+
+impl TagSampler for RandomTagSampler {
+    fn sample_tag(&self, domain_size: &Z) -> Result<Z, IssueError> {
+        Z::sample_uniform(Z::ONE, domain_size + &Z::ONE).map_err(|_| IssueError::TagSamplingFailed)
+    }
+}
+
+/// Supplies a conditioned preimage for the signer response.
+pub trait PreimageSampler {
+    fn sample<F: TagFunction>(
+        &self,
+        pk: &PublicKey<F>,
+        sk: &SecretKey,
+        target: &MatPolynomialRingZq,
+    ) -> Result<MatPolyOverZ, IssueError>;
+}
+
+/// Uses qFALL's conditioned GPV preimage sampler.
+pub struct QfallPreimageSampler;
+
+impl PreimageSampler for QfallPreimageSampler {
+    fn sample<F: TagFunction>(
+        &self,
+        pk: &PublicKey<F>,
+        sk: &SecretKey,
+        target: &MatPolynomialRingZq,
+    ) -> Result<MatPolyOverZ, IssueError> {
+        Ok(pk.psf.samp_p(&pk.a, &sk.trapdoor, target))
+    }
+}
 
 /// The first protocol message: the commitment `c` and the proof
 /// `pi_com` of a short opening.
