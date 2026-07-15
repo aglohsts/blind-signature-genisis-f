@@ -9,6 +9,9 @@ use qfall_math::integer::{MatPolyOverZ, MatZ, PolyOverZ, Z};
 use qfall_math::traits::{MatrixDimensions, MatrixGetEntry};
 use qfall_tools::primitive::psf::PSF;
 
+#[cfg(feature = "lazer-ffi")]
+pub(crate) mod lazer_statement;
+
 /// A proof backend for a final-signature relation.
 pub trait SignatureProofBackend<F: TagFunction> {
     type Witness;
