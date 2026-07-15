@@ -22,3 +22,7 @@ nbin = 1
 
 n = [preimage_length, randomness_length]
 B = [sqrt(preimage_bound_sq), sqrt(randomness_bound_sq)]
+
+# This zero-valued ARP keeps the pinned advanced prover on its initialised path.
+nprime = 1
+Bprime = 1
