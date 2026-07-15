@@ -653,4 +653,22 @@ mod tests {
             &provider
         ));
     }
+
+    #[test]
+    fn final_signature_provider_enforces_the_public_message_bound() {
+        let (pk, message, witness) = profile_fixture();
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        let proof = provider
+            .prove(&pk, &message, &witness)
+            .expect("prove bounded message");
+
+        let mut equivalent_message = message.clone();
+        equivalent_message
+            .set_entry(0, 0, PolyOverZ::from(MODULUS - 3))
+            .unwrap();
+        let original = build_statement(&pk, &message).unwrap();
+        let equivalent = build_statement(&pk, &equivalent_message).unwrap();
+        assert_eq!(original.offset, equivalent.offset);
+        assert!(!provider.verify(&pk, &equivalent_message, &proof));
+    }
 }
