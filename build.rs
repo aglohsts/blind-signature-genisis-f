@@ -19,6 +19,8 @@ fn required_dir(name: &str) -> PathBuf {
 fn main() {
     println!("cargo:rerun-if-changed=lazer/shim.c");
     println!("cargo:rerun-if-changed=lazer/shim_sig.c");
+    println!("cargo:rerun-if-changed=lazer/shim_sig_statement.c");
+    println!("cargo:rerun-if-changed=lazer/shim_sig_statement.h");
     println!("cargo:rerun-if-changed=lazer/shim.h");
     println!("cargo:rerun-if-changed=lazer/params_d64.h");
     println!("cargo:rerun-if-changed=lazer/params_sig_d64.h");
@@ -37,6 +39,7 @@ fn main() {
     cc::Build::new()
         .file("lazer/shim.c")
         .file("lazer/shim_sig.c")
+        .file("lazer/shim_sig_statement.c")
         .include(include_dir)
         .include("lazer")
         .flag_if_supported("-std=c11")
