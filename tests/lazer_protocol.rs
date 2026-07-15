@@ -5,13 +5,13 @@
 
 use blind_sig::commitment::CommitmentKey;
 use blind_sig::commitment_proof::{
-    CommitmentProofBackend, LazerD64Backend, LazerD64CommitmentProof,
+    CommitmentProofProvider, LazerD64CommitmentProof, LazerD64CommitmentProofProvider,
 };
 use blind_sig::issue::{
-    signer_respond_with_backend, user_check, user_commit_with_backend,
-    verify_user_commit_with_backend, SignerResponse, UserCommitMessage,
+    SignerResponse, UserCommitMessage, signer_respond_with_provider, user_check,
+    user_commit_with_provider, verify_user_commit_with_provider,
 };
-use blind_sig::keys::{key_gen, KeyGenParams, PublicKey, SecretKey};
+use blind_sig::keys::{KeyGenParams, PublicKey, SecretKey, key_gen};
 use blind_sig::lazer_ffi::Error;
 use blind_sig::proof_com::ComProofParams;
 use blind_sig::signature::{finalize, verify};
@@ -20,7 +20,7 @@ use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 use qfall_math::rational::Q;
 use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
-use qfall_tools::primitive::psf::{PSFGPVRing, PSF};
+use qfall_tools::primitive::psf::{PSF, PSFGPVRing};
 use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use std::cell::RefCell;
 
@@ -125,18 +125,18 @@ fn sparse_message() -> MatPolyOverZ {
 fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
     let (mut pk, sk) = d64_keys();
     let message = sparse_message();
-    let backend = LazerD64Backend::new([7; 32]);
+    let provider = LazerD64CommitmentProofProvider::new([7; 32]);
     let (first_message, state) =
-        user_commit_with_backend(&pk, &message, &backend).expect("LaZer proof");
+        user_commit_with_provider(&pk, &message, &provider).expect("LaZer proof");
 
-    assert!(verify_user_commit_with_backend(
+    assert!(verify_user_commit_with_provider(
         &pk,
         &first_message,
-        &backend
+        &provider
     ));
 
-    let wrong_seed = LazerD64Backend::new([8; 32]);
-    assert!(signer_respond_with_backend(&pk, &sk, &first_message, &wrong_seed).is_none());
+    let wrong_seed = LazerD64CommitmentProofProvider::new([8; 32]);
+    assert!(signer_respond_with_provider(&pk, &sk, &first_message, &wrong_seed).is_none());
 
     let mut altered_bytes = first_message.proof.as_bytes().to_vec();
     altered_bytes[0] ^= 1;
@@ -144,7 +144,7 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
         c: first_message.c.clone(),
         proof: LazerD64CommitmentProof::from_bytes(altered_bytes),
     };
-    assert!(signer_respond_with_backend(&pk, &sk, &altered_proof, &backend).is_none());
+    assert!(signer_respond_with_provider(&pk, &sk, &altered_proof, &provider).is_none());
 
     let mut shift = MatPolyOverZ::new(1, 1);
     shift.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
@@ -153,7 +153,7 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
         c: &first_message.c + &shift,
         proof: first_message.proof.clone(),
     };
-    assert!(signer_respond_with_backend(&pk, &sk, &altered_statement, &backend).is_none());
+    assert!(signer_respond_with_provider(&pk, &sk, &altered_statement, &provider).is_none());
 
     let s = pk.psf.samp_d();
     let target = pk.psf.f_a(&pk.a, &s);
@@ -172,20 +172,24 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
     let zero_randomness = MatPolyOverZ::new(2, 1);
     let commitment = pk.ck.commit(&high_degree_message, &zero_randomness);
     assert!(matches!(
-        backend.prove(&pk, &high_degree_message, &zero_randomness, &commitment),
+        provider.prove(&pk, &high_degree_message, &zero_randomness, &commitment),
         Err(Error::ProfileMismatch(_))
     ));
 
     pk.beta_r_sqrd = Z::from(2001);
     assert!(matches!(
-        user_commit_with_backend(&pk, &message, &backend),
+        user_commit_with_provider(&pk, &message, &provider),
         Err(Error::ProfileMismatch(_))
     ));
 }
 
 #[test]
-fn lazer_backend_rejects_the_standard_d8_profile() {
+fn lazer_provider_rejects_the_standard_d8_profile() {
     let (pk, _) = standard_keys();
-    let result = user_commit_with_backend(&pk, &sparse_message(), &LazerD64Backend::new([7; 32]));
+    let result = user_commit_with_provider(
+        &pk,
+        &sparse_message(),
+        &LazerD64CommitmentProofProvider::new([7; 32]),
+    );
     assert!(matches!(result, Err(Error::ProfileMismatch(_))));
 }

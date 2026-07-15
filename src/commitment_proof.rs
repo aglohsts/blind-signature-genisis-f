@@ -1,15 +1,15 @@
-//! Commitment-proof backends for the issuing protocol.
+//! Commitment-proof providers for the issuing protocol.
 //! Report: "The Proof Layer" and "LaZer Integration Feasibility".
 
 use crate::keys::PublicKey;
-use crate::proof_com::{prove_com, verify_com, ComProof};
+use crate::proof_com::{ComProof, prove_com, verify_com};
 use crate::tag_function::TagFunction;
 use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use std::convert::Infallible;
 
-/// A proof backend for the commitment-opening relation.
-pub trait CommitmentProofBackend<F: TagFunction> {
+/// A proof provider for the commitment-opening relation.
+pub trait CommitmentProofProvider<F: TagFunction> {
     type Proof;
     type Error;
 
@@ -24,10 +24,10 @@ pub trait CommitmentProofBackend<F: TagFunction> {
     fn verify(&self, pk: &PublicKey<F>, c: &MatPolynomialRingZq, proof: &Self::Proof) -> bool;
 }
 
-/// The native Fiat--Shamir proof backend.
-pub struct FiatShamirBackend;
+/// The native Fiat--Shamir proof provider.
+pub struct FiatShamirCommitmentProofProvider;
 
-impl<F: TagFunction> CommitmentProofBackend<F> for FiatShamirBackend {
+impl<F: TagFunction> CommitmentProofProvider<F> for FiatShamirCommitmentProofProvider {
     type Proof = ComProof;
     type Error = Infallible;
 
@@ -68,18 +68,18 @@ mod lazer {
         }
     }
 
-    /// The fixed LaZer backend and its public-parameter seed.
-    pub struct LazerD64Backend {
+    /// The fixed LaZer provider and its public-parameter seed.
+    pub struct LazerD64CommitmentProofProvider {
         ppseed: [u8; 32],
     }
 
-    impl LazerD64Backend {
+    impl LazerD64CommitmentProofProvider {
         pub const fn new(ppseed: [u8; 32]) -> Self {
             Self { ppseed }
         }
     }
 
-    impl<F: TagFunction> CommitmentProofBackend<F> for LazerD64Backend {
+    impl<F: TagFunction> CommitmentProofProvider<F> for LazerD64CommitmentProofProvider {
         type Proof = LazerD64CommitmentProof;
         type Error = Error;
 
@@ -216,4 +216,4 @@ mod lazer {
 }
 
 #[cfg(feature = "lazer-ffi")]
-pub use lazer::{LazerD64Backend, LazerD64CommitmentProof};
+pub use lazer::{LazerD64CommitmentProof, LazerD64CommitmentProofProvider};

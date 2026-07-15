@@ -3,7 +3,7 @@
 //! Report: "The Commitment and the Protocol Layer" and "The Proof
 //! Layer".
 
-use crate::commitment_proof::{CommitmentProofBackend, FiatShamirBackend};
+use crate::commitment_proof::{CommitmentProofProvider, FiatShamirCommitmentProofProvider};
 use crate::keys::{PublicKey, SecretKey};
 use crate::proof_com::ComProof;
 use crate::tag_function::TagFunction;
@@ -38,15 +38,16 @@ pub fn user_commit<F: TagFunction>(
     pk: &PublicKey<F>,
     m: &MatPolyOverZ,
 ) -> (UserCommitMessage, UserState) {
-    user_commit_with_backend(pk, m, &FiatShamirBackend).expect("the native backend is infallible")
+    user_commit_with_provider(pk, m, &FiatShamirCommitmentProofProvider)
+        .expect("the native provider is infallible")
 }
 
-/// Step 1 with an explicit commitment-proof backend.
-pub fn user_commit_with_backend<F: TagFunction, B: CommitmentProofBackend<F>>(
+/// Step 1 with an explicit commitment-proof provider.
+pub fn user_commit_with_provider<F: TagFunction, P: CommitmentProofProvider<F>>(
     pk: &PublicKey<F>,
     m: &MatPolyOverZ,
-    backend: &B,
-) -> Result<(UserCommitMessage<B::Proof>, UserState), B::Error> {
+    provider: &P,
+) -> Result<(UserCommitMessage<P::Proof>, UserState), P::Error> {
     let degree = pk.f.modulus().get_degree();
     assert!(
         norm_eucl_sqrd(m, degree) <= pk.beta_msg_sqrd
@@ -62,7 +63,7 @@ pub fn user_commit_with_backend<F: TagFunction, B: CommitmentProofBackend<F>>(
         }
     };
     let c = pk.ck.commit(m, &r);
-    let proof = backend.prove(pk, m, &r, &c)?;
+    let proof = provider.prove(pk, m, &r, &c)?;
     Ok((
         UserCommitMessage {
             c: c.clone(),
@@ -80,17 +81,17 @@ pub fn signer_respond<F: TagFunction>(
     sk: &SecretKey,
     msg: &UserCommitMessage,
 ) -> Option<SignerResponse> {
-    signer_respond_with_backend(pk, sk, msg, &FiatShamirBackend)
+    signer_respond_with_provider(pk, sk, msg, &FiatShamirCommitmentProofProvider)
 }
 
-/// Step 2 with an explicit commitment-proof backend.
-pub fn signer_respond_with_backend<F: TagFunction, B: CommitmentProofBackend<F>>(
+/// Step 2 with an explicit commitment-proof provider.
+pub fn signer_respond_with_provider<F: TagFunction, P: CommitmentProofProvider<F>>(
     pk: &PublicKey<F>,
     sk: &SecretKey,
-    msg: &UserCommitMessage<B::Proof>,
-    backend: &B,
+    msg: &UserCommitMessage<P::Proof>,
+    provider: &P,
 ) -> Option<SignerResponse> {
-    if !verify_user_commit_with_backend(pk, msg, backend) {
+    if !verify_user_commit_with_provider(pk, msg, provider) {
         return None;
     }
     let upper = &pk.f.domain_size() + &Z::ONE;
@@ -103,13 +104,13 @@ pub fn signer_respond_with_backend<F: TagFunction, B: CommitmentProofBackend<F>>
     Some(SignerResponse { x, s })
 }
 
-/// Verifies the first protocol message with an explicit proof backend.
-pub fn verify_user_commit_with_backend<F: TagFunction, B: CommitmentProofBackend<F>>(
+/// Verifies the first protocol message with an explicit proof provider.
+pub fn verify_user_commit_with_provider<F: TagFunction, P: CommitmentProofProvider<F>>(
     pk: &PublicKey<F>,
-    msg: &UserCommitMessage<B::Proof>,
-    backend: &B,
+    msg: &UserCommitMessage<P::Proof>,
+    provider: &P,
 ) -> bool {
-    backend.verify(pk, &msg.c, &msg.proof)
+    provider.verify(pk, &msg.c, &msg.proof)
 }
 
 /// Step 3: checks the tag, the equation `A * s = f(x) + c`, and the
@@ -132,9 +133,8 @@ pub fn user_check<F: TagFunction>(
 mod tests {
     use super::*;
     use crate::keys::{
-        key_gen,
+        PublicKey, key_gen,
         tests::{toy_key_gen_params, toy_psf},
-        PublicKey,
     };
     use crate::tag_function::HashToRing;
     use qfall_math::traits::MatrixDimensions;
