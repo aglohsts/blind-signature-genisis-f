@@ -5,7 +5,8 @@ from math import sqrt
 vname = "blind_sig_com_d64"
 
 deg = 64
-mod = 257
+# Matches the advanced final-signature statement ring.
+mod = 281_474_976_711_349
 dim = (1, 10)
 
 # The witness layout and zero padding are defined in the report.
