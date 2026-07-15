@@ -60,12 +60,25 @@ set_rotated_automorphism (poly_ptr poly, const int64_t *values,
     }
 }
 
+static void
+set_identity_entry (polymat_t matrix, unsigned int row, unsigned int column)
+{
+  poly_ptr entry = polymat_get_elem (matrix, row, column);
+  int_set_i64 (poly_get_coeff (entry, 0), 1);
+}
+
 void
 bs_sig_d64_statement_init (bs_sig_d64_statement *statement,
                            const int64_t *linear,
                            const int64_t *tag_matrix,
                            const int64_t *offset)
 {
+  const unsigned int h_auto
+      = 2u * (BS_LAZER_SIG_D64_BOUNDED_COLUMNS + 1u) + 1u;
+  const unsigned int h_plain
+      = 2u * (BS_LAZER_SIG_D64_BOUNDED_COLUMNS + 1u);
+  const unsigned int u_auto
+      = 2u * (BS_LAZER_SIG_D64_BOUNDED_COLUMNS + 2u) + 1u;
   const unsigned int tag_auto
       = 2u * BS_LAZER_SIG_D64_BOUNDED_COLUMNS + 1u;
   unsigned int equation;
@@ -102,6 +115,69 @@ bs_sig_d64_statement_init (bs_sig_d64_statement *statement,
       set_constant_coefficient (statement->constant[row], offset[row]);
       spolyvec_sort (statement->linear[row]);
     }
+
+  for (row = 1; row < BS_LAZER_SIG_D64_DEGREE; row++)
+    {
+      const unsigned int index = BS_LAZER_SIG_D64_DEGREE + row - 1u;
+      poly_ptr entry = spolyvec_insert_elem (statement->linear[index], h_auto);
+      poly_set_zero (entry);
+      int_set_i64 (poly_get_coeff (entry, row), 1);
+      spolyvec_sort (statement->linear[index]);
+    }
+
+  spolymat_alloc (statement->quadratic[0], blind_sig_sig_d64_ring,
+                  BS_SIG_D64_VARIABLES, BS_SIG_D64_VARIABLES,
+                  BS_LAZER_SIG_D64_PREIMAGE_COLUMNS);
+  for (column = 0; column < BS_LAZER_SIG_D64_PREIMAGE_COLUMNS; column++)
+    set_constant_coefficient (
+        spolymat_insert_elem (statement->quadratic[0], 2u * column,
+                              2u * column + 1u),
+        -1);
+  statement->quadratic_ptrs[BS_SIG_D64_EVAL_OFFSET
+                             + BS_SIG_D64_NORM_EQUATION]
+      = statement->quadratic[0];
+  set_constant_coefficient (
+      spolyvec_insert_elem (statement->linear[BS_SIG_D64_NORM_EQUATION],
+                            h_auto),
+      1);
+  spolyvec_sort (statement->linear[BS_SIG_D64_NORM_EQUATION]);
+  spolymat_sort (statement->quadratic[0]);
+
+  spolymat_alloc (statement->quadratic[1], blind_sig_sig_d64_ring,
+                  BS_SIG_D64_VARIABLES, BS_SIG_D64_VARIABLES, 1);
+  set_constant_coefficient (
+      spolymat_insert_elem (statement->quadratic[1], h_plain, u_auto), 1);
+  statement->quadratic_ptrs[BS_SIG_D64_EVAL_OFFSET
+                             + BS_SIG_D64_INVERSE_EQUATION]
+      = statement->quadratic[1];
+  set_constant_coefficient (
+      statement->constant[BS_SIG_D64_INVERSE_EQUATION], -1);
+  spolymat_sort (statement->quadratic[1]);
+
+  polymat_alloc (statement->l2[0], blind_sig_sig_d64_ring,
+                 BS_LAZER_SIG_D64_PREIMAGE_COLUMNS,
+                 BS_LAZER_SIG_D64_BOUNDED_COLUMNS);
+  polymat_set_zero (statement->l2[0]);
+  for (row = 0; row < BS_LAZER_SIG_D64_PREIMAGE_COLUMNS; row++)
+    set_identity_entry (statement->l2[0], row, row);
+  statement->l2_ptrs[0] = statement->l2[0];
+
+  polymat_alloc (statement->l2[1], blind_sig_sig_d64_ring,
+                 BS_LAZER_SIG_D64_RANDOMNESS_COLUMNS,
+                 BS_LAZER_SIG_D64_BOUNDED_COLUMNS);
+  polymat_set_zero (statement->l2[1]);
+  for (row = 0; row < BS_LAZER_SIG_D64_RANDOMNESS_COLUMNS; row++)
+    set_identity_entry (statement->l2[1], row,
+                        BS_LAZER_SIG_D64_PREIMAGE_COLUMNS + row);
+  statement->l2_ptrs[1] = statement->l2[1];
+
+  polymat_alloc (statement->binary_m, blind_sig_sig_d64_ring, 1, 3);
+  polymat_set_zero (statement->binary_m);
+  set_identity_entry (statement->binary_m, 0, 0);
+
+  polymat_alloc (statement->arp_s, blind_sig_sig_d64_ring, 1,
+                 BS_LAZER_SIG_D64_BOUNDED_COLUMNS);
+  polymat_set_zero (statement->arp_s);
 }
 
 void
@@ -114,4 +190,10 @@ bs_sig_d64_statement_clear (bs_sig_d64_statement *statement)
       spolyvec_free (statement->linear[equation]);
       poly_free (statement->constant[equation]);
     }
+  spolymat_free (statement->quadratic[0]);
+  spolymat_free (statement->quadratic[1]);
+  polymat_free (statement->l2[0]);
+  polymat_free (statement->l2[1]);
+  polymat_free (statement->binary_m);
+  polymat_free (statement->arp_s);
 }
