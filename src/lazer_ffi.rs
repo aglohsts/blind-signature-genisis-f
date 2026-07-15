@@ -50,6 +50,7 @@ unsafe extern "C" {
         proof_len: usize,
     ) -> i32;
     fn bs_lazer_sig_d64_proof_capacity() -> usize;
+    fn bs_lazer_sig_d64_proof_len() -> usize;
     fn bs_lazer_sig_d64_prove(
         linear: *const i64,
         linear_len: usize,
@@ -169,6 +170,12 @@ pub fn proof_len() -> usize {
 pub fn final_signature_proof_capacity() -> usize {
     // SAFETY: Reads constants from the generated profile and C shim.
     unsafe { bs_lazer_sig_d64_proof_capacity() }
+}
+
+/// Returns the expected encoded length for the advanced signature profile.
+pub fn final_signature_proof_len() -> usize {
+    // SAFETY: Reads a constant from the generated profile.
+    unsafe { bs_lazer_sig_d64_proof_len() }
 }
 
 /// Proves the fixed coefficient-level final-signature relation.
@@ -386,6 +393,8 @@ mod tests {
     #[test]
     fn reports_expected_profile_size() {
         assert_eq!(proof_len(), 22_682);
+        assert_eq!(final_signature_proof_len(), 31_586);
+        assert_eq!(final_signature_proof_capacity(), 63_172);
     }
 
     #[test]
