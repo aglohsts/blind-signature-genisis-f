@@ -367,4 +367,75 @@ mod tests {
             .expect("verify non-zero tag relation")
         );
     }
+
+    #[test]
+    fn rejects_incompatible_final_signature_profiles() {
+        let (mut pk, message, witness) = profile_fixture();
+        let wrong_modulus = new_anticyclic(lazer_ffi::DEGREE as i64, 257).unwrap();
+        pk.f = BinaryEncoding::new(1, lazer_ffi::FINAL_TAG_COEFFICIENTS as i64, wrong_modulus);
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (mut pk, message, witness) = profile_fixture();
+        let wrong_modulus = new_anticyclic(lazer_ffi::DEGREE as i64, 257).unwrap();
+        pk.a = MatPolynomialRingZq::from((
+            &MatPolyOverZ::new(1, lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64),
+            &wrong_modulus,
+        ));
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (mut pk, message, witness) = profile_fixture();
+        pk.a = MatPolynomialRingZq::from((
+            &MatPolyOverZ::new(1, lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64 - 1),
+            pk.f.modulus(),
+        ));
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (mut pk, message, witness) = profile_fixture();
+        pk.f = BinaryEncoding::new(
+            1,
+            lazer_ffi::FINAL_TAG_COEFFICIENTS as i64 - 1,
+            pk.f.modulus().clone(),
+        );
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (pk, _, witness) = profile_fixture();
+        let bad_message = MatPolyOverZ::new(pk.ck.b1.get_num_columns() + 1, 1);
+        assert!(matches!(
+            build_inputs(&pk, &bad_message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (pk, mut message, witness) = profile_fixture();
+        let mut high_degree = PolyOverZ::default();
+        high_degree.set_coeff(lazer_ffi::DEGREE as i64, 1).unwrap();
+        message.set_entry(0, 0, high_degree).unwrap();
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_final_signature_coefficients_outside_i64() {
+        let (pk, message, mut witness) = profile_fixture();
+        let mut polynomial = PolyOverZ::default();
+        polynomial.set_coeff(0, Z::from(u64::MAX)).unwrap();
+        witness.s.set_entry(0, 0, polynomial).unwrap();
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
+            Err(Error::CoefficientOutOfRange)
+        ));
+    }
 }
