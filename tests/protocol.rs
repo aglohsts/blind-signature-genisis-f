@@ -87,7 +87,7 @@ fn run_honest_and_tampered<F: TagFunction>(f: F) {
     // An invalid commitment proof makes the signer abort.
     let (mut msg, _) = user_commit(&pk, &m);
     msg.proof.z_m = &msg.proof.z_m + &msg.proof.z_m;
-    assert!(signer_respond(&pk, &sk, &msg).is_none());
+    assert!(signer_respond(&pk, &sk, &msg).is_err());
 }
 
 #[test]

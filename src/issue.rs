@@ -137,14 +137,30 @@ pub fn user_commit_with_provider<F: TagFunction, P: CommitmentProofProvider<F>>(
 }
 
 /// Step 2: verifies `pi_com`, then samples `x <- [N]` and a preimage
-/// for `f(x) + c`; returns `None` when the proof fails or the
-/// preimage fails the norm bound (signer abort).
+/// for `f(x) + c`.
 pub fn signer_respond<F: TagFunction>(
     pk: &PublicKey<F>,
     sk: &SecretKey,
     msg: &UserCommitMessage,
-) -> Option<SignerResponse> {
+) -> Result<SignerResponse, IssueError> {
     signer_respond_with_provider(pk, sk, msg, &FiatShamirCommitmentProofProvider)
+}
+
+/// Step 2 with an explicit preimage sampler.
+pub fn signer_respond_with_sampler<F: TagFunction, S: PreimageSampler>(
+    pk: &PublicKey<F>,
+    sk: &SecretKey,
+    msg: &UserCommitMessage,
+    sampler: &S,
+) -> Result<SignerResponse, IssueError> {
+    signer_respond_with_components(
+        pk,
+        sk,
+        msg,
+        &FiatShamirCommitmentProofProvider,
+        &RandomTagSampler,
+        sampler,
+    )
 }
 
 /// Step 2 with an explicit commitment-proof provider.
@@ -153,18 +169,48 @@ pub fn signer_respond_with_provider<F: TagFunction, P: CommitmentProofProvider<F
     sk: &SecretKey,
     msg: &UserCommitMessage<P::Proof>,
     provider: &P,
-) -> Option<SignerResponse> {
+) -> Result<SignerResponse, IssueError> {
+    signer_respond_with_components(
+        pk,
+        sk,
+        msg,
+        provider,
+        &RandomTagSampler,
+        &QfallPreimageSampler,
+    )
+}
+
+/// Step 2 with explicit proof, tag and preimage components.
+pub fn signer_respond_with_components<
+    F: TagFunction,
+    P: CommitmentProofProvider<F>,
+    T: TagSampler,
+    S: PreimageSampler,
+>(
+    pk: &PublicKey<F>,
+    sk: &SecretKey,
+    msg: &UserCommitMessage<P::Proof>,
+    provider: &P,
+    tag_sampler: &T,
+    preimage_sampler: &S,
+) -> Result<SignerResponse, IssueError> {
     if !verify_user_commit_with_provider(pk, msg, provider) {
-        return None;
+        return Err(IssueError::InvalidCommitmentProof);
     }
-    let upper = &pk.f.domain_size() + &Z::ONE;
-    let x = Z::sample_uniform(Z::ONE, upper).unwrap();
+    let domain_size = pk.f.domain_size();
+    let x = tag_sampler.sample_tag(&domain_size)?;
+    if x < Z::ONE || x > domain_size {
+        return Err(IssueError::TagOutOfRange);
+    }
     let target = &pk.f.eval(&x) + &msg.c;
-    let s = pk.psf.samp_p(&pk.a, &sk.trapdoor, &target);
+    let s = preimage_sampler.sample(pk, sk, &target)?;
     if !pk.psf.check_domain(&s) {
-        return None;
+        return Err(IssueError::InvalidPreimage);
     }
-    Some(SignerResponse { x, s })
+    if pk.psf.f_a(&pk.a, &s) != target {
+        return Err(IssueError::InvalidPreimage);
+    }
+    Ok(SignerResponse { x, s })
 }
 
 /// Verifies the first protocol message with an explicit proof provider.
@@ -253,7 +299,10 @@ mod tests {
         let (pk, sk, m) = setup();
         let (mut msg, _) = user_commit(&pk, &m);
         msg.proof.z_m = &msg.proof.z_m + &msg.proof.z_m;
-        assert!(signer_respond(&pk, &sk, &msg).is_none());
+        assert!(matches!(
+            signer_respond(&pk, &sk, &msg),
+            Err(IssueError::InvalidCommitmentProof)
+        ));
     }
 
     #[test]
@@ -261,7 +310,10 @@ mod tests {
         let (pk, sk, m) = setup();
         let (mut msg, _) = user_commit(&pk, &m);
         msg.proof.z_m = MatPolyOverZ::new(pk.ck.b1.get_num_columns(), 2);
-        assert!(signer_respond(&pk, &sk, &msg).is_none());
+        assert!(matches!(
+            signer_respond(&pk, &sk, &msg),
+            Err(IssueError::InvalidCommitmentProof)
+        ));
     }
 
     #[test]

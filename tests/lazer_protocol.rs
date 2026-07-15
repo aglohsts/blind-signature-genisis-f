@@ -136,7 +136,7 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
     ));
 
     let wrong_seed = LazerD64CommitmentProofProvider::new([8; 32]);
-    assert!(signer_respond_with_provider(&pk, &sk, &first_message, &wrong_seed).is_none());
+    assert!(signer_respond_with_provider(&pk, &sk, &first_message, &wrong_seed).is_err());
 
     let mut altered_bytes = first_message.proof.as_bytes().to_vec();
     altered_bytes[0] ^= 1;
@@ -144,7 +144,7 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
         c: first_message.c.clone(),
         proof: LazerD64CommitmentProof::from_bytes(altered_bytes),
     };
-    assert!(signer_respond_with_provider(&pk, &sk, &altered_proof, &provider).is_none());
+    assert!(signer_respond_with_provider(&pk, &sk, &altered_proof, &provider).is_err());
 
     let mut shift = MatPolyOverZ::new(1, 1);
     shift.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
@@ -153,7 +153,7 @@ fn lazer_commitment_proof_runs_in_the_issuing_protocol() {
         c: &first_message.c + &shift,
         proof: first_message.proof.clone(),
     };
-    assert!(signer_respond_with_provider(&pk, &sk, &altered_statement, &provider).is_none());
+    assert!(signer_respond_with_provider(&pk, &sk, &altered_statement, &provider).is_err());
 
     let s = pk.psf.samp_d();
     let target = pk.psf.f_a(&pk.a, &s);
