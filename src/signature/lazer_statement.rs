@@ -149,3 +149,132 @@ fn append_coefficient(out: &mut Vec<i64>, coefficient: &Z, sign: i64) -> Result<
     out.push(coefficient * sign);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commitment::CommitmentKey;
+    use crate::keys::PublicKey;
+    use crate::proof_com::ComProofParams;
+    use crate::signature::binary_relation_holds;
+    use qfall_math::integer::PolyOverZ;
+    use qfall_math::rational::Q;
+    use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
+    use qfall_tools::primitive::psf::PSFGPVRing;
+    use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
+
+    fn profile_fixture() -> (
+        PublicKey<BinaryEncoding>,
+        MatPolyOverZ,
+        BinarySignatureWitness,
+    ) {
+        let modulus = new_anticyclic(lazer_ffi::DEGREE as i64, MODULUS).unwrap();
+        let mut a = MatPolyOverZ::new(1, lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64);
+        let mut x = PolyOverZ::default();
+        x.set_coeff(1, 1).unwrap();
+        a.set_entry(0, 0, x).unwrap();
+
+        let mut b1 = MatPolyOverZ::new(1, 2);
+        b1.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        let mut b2 = MatPolyOverZ::new(1, 2);
+        b2.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+
+        let f = BinaryEncoding::new(1, lazer_ffi::FINAL_TAG_COEFFICIENTS as i64, modulus.clone());
+        let psf = PSFGPVRing {
+            gp: GadgetParametersRing::init_default(lazer_ffi::DEGREE as i64, MODULUS),
+            s: Q::from(100),
+            s_td: Q::from(1.005_f64),
+        };
+        let pk = PublicKey {
+            a: MatPolynomialRingZq::from((&a, &modulus)),
+            ck: CommitmentKey {
+                b1: MatPolynomialRingZq::from((&b1, &modulus)),
+                b2: MatPolynomialRingZq::from((&b2, &modulus)),
+            },
+            f,
+            psf,
+            s_r: Q::from(3),
+            beta_msg_sqrd: Z::from(16),
+            beta_r_sqrd: Z::from(2_000),
+            com_params: ComProofParams {
+                witness_inf: 20,
+                mask_inf: 8_000,
+            },
+        };
+
+        let mut message = MatPolyOverZ::new(2, 1);
+        message.set_entry(0, 0, PolyOverZ::from(-3)).unwrap();
+        let mut s = MatPolyOverZ::new(lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64, 1);
+        let mut last = PolyOverZ::default();
+        last.set_coeff(lazer_ffi::DEGREE as i64 - 1, 2).unwrap();
+        s.set_entry(0, 0, last).unwrap();
+        let mut r = MatPolyOverZ::new(lazer_ffi::FINAL_RANDOMNESS_COLUMNS as i64, 1);
+        r.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        let tag_encoding = pk.f.encode_tag(&Z::ONE);
+        let witness = BinarySignatureWitness { tag_encoding, s, r };
+        (pk, message, witness)
+    }
+
+    fn coefficient_relation_holds(inputs: &LazerD64SignatureInputs) -> bool {
+        let degree = lazer_ffi::DEGREE;
+        let modulus = MODULUS as i128;
+        (0..degree).all(|row| {
+            let mut residual = inputs.offset[row] as i128;
+            for column in 0..lazer_ffi::FINAL_BOUNDED_COLUMNS {
+                let polynomial = &inputs.linear[column * degree..(column + 1) * degree];
+                let value = &inputs.witness[column * degree..(column + 1) * degree];
+                for (left, left_value) in polynomial.iter().enumerate() {
+                    for (right, right_value) in value.iter().enumerate() {
+                        let exponent = left + right;
+                        if exponent % degree == row {
+                            let sign = if exponent >= degree { -1 } else { 1 };
+                            residual += sign * (*left_value as i128) * (*right_value as i128);
+                        }
+                    }
+                }
+            }
+            for bit in 0..lazer_ffi::FINAL_TAG_COEFFICIENTS {
+                residual += inputs.tag_matrix[row * degree + bit] as i128 * inputs.tag[bit] as i128;
+            }
+            residual.rem_euclid(modulus) == 0
+        })
+    }
+
+    #[test]
+    fn scheme_relation_matches_coefficient_statement() {
+        let (pk, message, witness) = profile_fixture();
+        assert!(binary_relation_holds(&pk, &message, &witness));
+        let inputs = build_inputs(&pk, &message, &witness).expect("build statement inputs");
+        assert!(coefficient_relation_holds(&inputs));
+        assert_eq!(lazer_ffi::FINAL_LINEAR_COEFFICIENTS, inputs.linear.len());
+        assert_eq!(
+            lazer_ffi::FINAL_TAG_MATRIX_COEFFICIENTS,
+            inputs.tag_matrix.len()
+        );
+        assert_eq!(lazer_ffi::FINAL_OFFSET_COEFFICIENTS, inputs.offset.len());
+        assert_eq!(lazer_ffi::FINAL_WITNESS_COEFFICIENTS, inputs.witness.len());
+        assert_eq!(lazer_ffi::FINAL_TAG_COEFFICIENTS, inputs.tag.len());
+
+        let ppseed = [7; 32];
+        let proof = lazer_ffi::prove_final_signature(
+            &inputs.linear,
+            &inputs.tag_matrix,
+            &inputs.offset,
+            &inputs.witness,
+            &inputs.tag,
+            &ppseed,
+            Some(&[9; 32]),
+        )
+        .expect("prove mapped relation");
+        assert!(
+            lazer_ffi::verify_final_signature(
+                &inputs.linear,
+                &inputs.tag_matrix,
+                &inputs.offset,
+                &ppseed,
+                &proof,
+            )
+            .expect("verify mapped relation")
+        );
+    }
+}
