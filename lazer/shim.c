@@ -40,6 +40,12 @@ bs_lazer_sig_d64_proof_len (void)
   return (size_t)blind_sig_sig_d64->prooflen;
 }
 
+size_t
+bs_lazer_sig_d64_proof_capacity (void)
+{
+  return 2 * bs_lazer_sig_d64_proof_len ();
+}
+
 static int64_t
 center_mod_257 (int64_t value)
 {

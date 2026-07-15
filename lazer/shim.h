@@ -53,10 +53,21 @@ size_t bs_lazer_d64_proof_len (void);
 /* Expected encoded length for the advanced final-signature profile. */
 size_t bs_lazer_sig_d64_proof_len (void);
 
+/* Guarded output capacity used by the advanced encoder. */
+size_t bs_lazer_sig_d64_proof_capacity (void);
+
 /* Returns 1 exactly when the hidden values satisfy the fixed profile. */
 int bs_lazer_sig_d64_witness_is_valid (const int64_t *witness,
                                        size_t witness_len,
                                        const int64_t *tag, size_t tag_len);
+
+/* Proves linear * witness + tag_matrix * tag + offset = 0 coefficient-wise. */
+int bs_lazer_sig_d64_prove (
+    const int64_t *linear, size_t linear_len, const int64_t *tag_matrix,
+    size_t tag_matrix_len, const int64_t *offset, size_t offset_len,
+    const int64_t *witness, size_t witness_len, const int64_t *tag,
+    size_t tag_len, const uint8_t ppseed[32], const uint8_t coins[32],
+    uint8_t *proof, size_t proof_capacity, size_t *proof_len);
 
 /* Proves A * w - c = 0; coins may be NULL for system randomness. */
 int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
