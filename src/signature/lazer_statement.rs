@@ -63,6 +63,14 @@ fn validate_profile(
             "the final-signature ring must be Z_q[X]/(X^64 + 1)",
         ));
     }
+    if &pk.a.get_mod() != pk.f.modulus()
+        || &pk.ck.b1.get_mod() != pk.f.modulus()
+        || &pk.ck.b2.get_mod() != pk.f.modulus()
+    {
+        return Err(Error::ProfileMismatch(
+            "the final-signature matrices must use the statement ring",
+        ));
+    }
     if (pk.a.get_num_rows(), pk.a.get_num_columns())
         != (1, lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64)
         || (pk.ck.b2.get_num_rows(), pk.ck.b2.get_num_columns())
