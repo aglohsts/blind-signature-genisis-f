@@ -37,6 +37,11 @@ impl BinaryEncoding {
         self.t
     }
 
+    /// Returns the public coefficient matrix used by the tag function.
+    pub fn coefficient_matrix(&self) -> &MatZq {
+        &self.b_mat
+    }
+
     /// Returns the canonical binary encoding of `x - 1`.
     pub fn encode_tag(&self, x: &Z) -> MatZ {
         assert_tag_in_domain(x, &self.domain_size());
@@ -139,6 +144,8 @@ mod tests {
         assert_eq!(Z::ZERO, encoding.get_entry(1, 0).unwrap());
         assert_eq!(Z::ONE, encoding.get_entry(2, 0).unwrap());
         assert_eq!(T, f.encoding_length());
+        assert_eq!(N_ROWS * D, f.coefficient_matrix().get_num_rows());
+        assert_eq!(T, f.coefficient_matrix().get_num_columns());
         assert_eq!(Some(f.eval(&Z::from(6))), f.eval_encoding(&encoding));
     }
 
