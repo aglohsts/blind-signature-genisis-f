@@ -86,19 +86,27 @@ target used by LaZer.
 
 ## Regenerate the parameters
 
-Check out the revision from `LAZER_REVISION`, including its submodules. Then
-generate the checked-in header with Sage 10.2. For example, from the project
-root with the checkout path in `LAZER_CHECKOUT`:
+Build the pinned SageMath image with the generator scripts from the pinned
+LaZer source stage:
+
+```sh
+docker build --platform linux/amd64 \
+  --file lazer/Dockerfile \
+  --target parameter-generator \
+  --tag blind-sig-lazer-params \
+  .
+```
+
+Generate the checked-in linear-proof header from the project root:
 
 ```sh
 docker run --rm --platform linux/amd64 \
-  --volume "$LAZER_CHECKOUT:/lazer" \
   --volume "$PWD:/project" \
-  --workdir /lazer/scripts \
-  sagemath/sagemath:10.2 \
-  sage lin-codegen.sage /project/lazer/params_d64.py \
+  blind-sig-lazer-params \
+  lin-codegen.sage /project/lazer/params_d64.py \
   > lazer/params_d64.h
 ```
 
-The generated header, LaZer source revision, and shim must be reviewed and
-updated together.
+The advanced LNP generator uses the same image with
+`lnp-tbox-codegen.sage`. Generated headers, source profiles, the LaZer
+revision, and their shims must be reviewed and updated together.

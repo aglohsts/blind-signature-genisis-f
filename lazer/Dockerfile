@@ -2,6 +2,7 @@
 # Report: "LaZer Integration Feasibility".
 
 ARG LAZER_PLATFORM=linux/amd64
+ARG SAGE_IMAGE=docker.io/sagemath/sagemath:10.2@sha256:a7c4f3d0536aa1e93c106ac31ea2ae035299f9afcfdcb4a549c396374fb926a9
 
 FROM --platform=${LAZER_PLATFORM} ubuntu:24.04 AS build
 
@@ -22,6 +23,15 @@ RUN --mount=type=bind,source=lazer/LAZER_REVISION,target=/tmp/LAZER_REVISION \
 WORKDIR /src/lazer
 
 RUN make CC=gcc-14 CXX=g++-14 lib-static
+
+FROM --platform=${LAZER_PLATFORM} ${SAGE_IMAGE} AS parameter-generator
+
+COPY --chown=sage:sage --from=build /src/lazer/scripts /src/lazer/scripts
+COPY --chown=sage:sage --from=build /src/lazer/third_party/estimator.py /src/lazer/third_party/estimator.py
+
+WORKDIR /src/lazer/scripts
+
+ENTRYPOINT ["sage"]
 
 FROM --platform=${LAZER_PLATFORM} rust:1.93-bookworm AS rust-runner
 
