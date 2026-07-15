@@ -250,6 +250,27 @@ mod tests {
 
     const D: i64 = 8;
 
+    struct FixedTagSampler(Z);
+
+    impl TagSampler for FixedTagSampler {
+        fn sample_tag(&self, _domain_size: &Z) -> Result<Z, IssueError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    struct FixedPreimageSampler(MatPolyOverZ);
+
+    impl PreimageSampler for FixedPreimageSampler {
+        fn sample<F: TagFunction>(
+            &self,
+            _pk: &PublicKey<F>,
+            _sk: &SecretKey,
+            _target: &MatPolynomialRingZq,
+        ) -> Result<MatPolyOverZ, IssueError> {
+            Ok(self.0.clone())
+        }
+    }
+
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let f = HashToRing::new(1, 1u64 << 20, psf.gp.modulus.clone(), "issue-test");
@@ -313,6 +334,35 @@ mod tests {
         assert!(matches!(
             signer_respond(&pk, &sk, &msg),
             Err(IssueError::InvalidCommitmentProof)
+        ));
+    }
+
+    #[test]
+    fn injected_signer_components_must_match_the_public_target() {
+        let (pk, sk, m) = setup();
+        let (msg, _) = user_commit(&pk, &m);
+        let zero = MatPolyOverZ::new(pk.a.get_num_columns(), 1);
+        assert!(matches!(
+            signer_respond_with_components(
+                &pk,
+                &sk,
+                &msg,
+                &FiatShamirCommitmentProofProvider,
+                &FixedTagSampler(Z::ZERO),
+                &FixedPreimageSampler(zero.clone()),
+            ),
+            Err(IssueError::TagOutOfRange)
+        ));
+        assert!(matches!(
+            signer_respond_with_components(
+                &pk,
+                &sk,
+                &msg,
+                &FiatShamirCommitmentProofProvider,
+                &FixedTagSampler(Z::ONE),
+                &FixedPreimageSampler(zero),
+            ),
+            Err(IssueError::InvalidPreimage)
         ));
     }
 
