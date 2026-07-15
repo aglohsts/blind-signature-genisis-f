@@ -9,6 +9,22 @@ use qfall_math::integer::{MatPolyOverZ, MatZ, PolyOverZ, Z};
 use qfall_math::traits::{MatrixDimensions, MatrixGetEntry};
 use qfall_tools::primitive::psf::PSF;
 
+/// A proof backend for a final-signature relation.
+pub trait SignatureProofBackend<F: TagFunction> {
+    type Witness;
+    type Proof;
+    type Error;
+
+    fn prove(
+        &self,
+        pk: &PublicKey<F>,
+        m: &MatPolyOverZ,
+        witness: &Self::Witness,
+    ) -> Result<Self::Proof, Self::Error>;
+
+    fn verify(&self, pk: &PublicKey<F>, m: &MatPolyOverZ, proof: &Self::Proof) -> bool;
+}
+
 /// The hidden witness for the binary final-signature relation.
 pub struct BinarySignatureWitness {
     pub tag_encoding: MatZ,
