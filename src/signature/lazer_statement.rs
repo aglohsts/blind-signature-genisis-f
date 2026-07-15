@@ -286,9 +286,10 @@ fn append_coefficient(out: &mut Vec<i64>, coefficient: &Z, sign: i64) -> Result<
 mod tests {
     use super::*;
     use crate::commitment::CommitmentKey;
+    use crate::issue::{SignerResponse, UserState, user_check};
     use crate::keys::PublicKey;
     use crate::proof_com::ComProofParams;
-    use crate::signature::binary_relation_holds;
+    use crate::signature::{binary_relation_holds, finalize_with_provider, verify_with_provider};
     use crate::util::norm_eucl_sqrd;
     use qfall_math::integer::PolyOverZ;
     use qfall_math::rational::Q;
@@ -618,6 +619,38 @@ mod tests {
         assert!(matches!(
             provider.prove(&pk, &message, &witness),
             Err(Error::ProfileMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn proof_based_final_signature_hides_the_issuing_witness() {
+        let (pk, message, witness) = profile_fixture();
+        let commitment = pk.ck.commit(&message, &witness.r);
+        let state = UserState {
+            m: message.clone(),
+            r: witness.r,
+            c: commitment,
+        };
+        let response = SignerResponse {
+            x: Z::ONE,
+            s: witness.s,
+        };
+        assert!(user_check(&pk, &state, &response));
+
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        let signature = finalize_with_provider(&pk, state, response, &provider)
+            .expect("assemble final signature");
+        assert!(verify_with_provider(&pk, &message, &signature, &provider));
+
+        let mut altered_message = message;
+        altered_message
+            .set_entry(0, 0, PolyOverZ::from(-2))
+            .unwrap();
+        assert!(!verify_with_provider(
+            &pk,
+            &altered_message,
+            &signature,
+            &provider
         ));
     }
 }
