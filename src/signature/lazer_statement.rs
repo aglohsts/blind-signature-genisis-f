@@ -1,9 +1,13 @@
-use super::{BinarySignatureWitness, fits_ring_degree};
+use super::{
+    BinarySignatureWitness, FinalSignatureProofProvider, binary_relation_holds, fits_ring_degree,
+};
 use crate::keys::PublicKey;
 use crate::lazer_ffi::{self, Error};
 use crate::tag_function::{BinaryEncoding, TagFunction};
+use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq};
+use qfall_math::rational::Q;
 use qfall_math::traits::{GetCoefficient, MatrixDimensions, MatrixGetEntry};
 use qfall_tools::utils::common_moduli::new_anticyclic;
 
@@ -20,6 +24,86 @@ pub(crate) struct LazerD64SignatureWitness {
     pub(crate) tag: Vec<i64>,
 }
 
+/// An encoded proof for the fixed LaZer final-signature profile.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LazerD64FinalSignatureProof(Vec<u8>);
+
+impl LazerD64FinalSignatureProof {
+    pub fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// The fixed LaZer final-signature provider and public-parameter seed.
+pub struct LazerD64FinalSignatureProofProvider {
+    ppseed: [u8; 32],
+}
+
+impl LazerD64FinalSignatureProofProvider {
+    pub const fn new(ppseed: [u8; 32]) -> Self {
+        Self { ppseed }
+    }
+}
+
+impl FinalSignatureProofProvider<BinaryEncoding> for LazerD64FinalSignatureProofProvider {
+    type Witness = BinarySignatureWitness;
+    type Proof = LazerD64FinalSignatureProof;
+    type Error = Error;
+
+    fn prove(
+        &self,
+        pk: &PublicKey<BinaryEncoding>,
+        message: &MatPolyOverZ,
+        witness: &Self::Witness,
+    ) -> Result<Self::Proof, Self::Error> {
+        validate_proof_profile(pk)?;
+        let statement = build_statement(pk, message)?;
+        let witness_inputs = build_witness(witness)?;
+        if !binary_relation_holds(pk, message, witness) {
+            return Err(Error::InvalidInput);
+        }
+        lazer_ffi::prove_final_signature(
+            &statement.linear,
+            &statement.tag_matrix,
+            &statement.offset,
+            &witness_inputs.witness,
+            &witness_inputs.tag,
+            &self.ppseed,
+            None,
+        )
+        .map(LazerD64FinalSignatureProof)
+    }
+
+    fn verify(
+        &self,
+        pk: &PublicKey<BinaryEncoding>,
+        message: &MatPolyOverZ,
+        proof: &Self::Proof,
+    ) -> bool {
+        if validate_proof_profile(pk).is_err()
+            || norm_eucl_sqrd(message, lazer_ffi::DEGREE as i64) > pk.beta_msg_sqrd
+        {
+            return false;
+        }
+        let Ok(statement) = build_statement(pk, message) else {
+            return false;
+        };
+        lazer_ffi::verify_final_signature(
+            &statement.linear,
+            &statement.tag_matrix,
+            &statement.offset,
+            &self.ppseed,
+            proof.as_bytes(),
+        )
+        .unwrap_or(false)
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn build_inputs(
     pk: &PublicKey<BinaryEncoding>,
     message: &MatPolyOverZ,
@@ -123,6 +207,19 @@ fn validate_witness_profile(witness: &BinarySignatureWitness) -> Result<(), Erro
     {
         return Err(Error::ProfileMismatch(
             "the final-signature witness must match the profile layout",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_proof_profile(pk: &PublicKey<BinaryEncoding>) -> Result<(), Error> {
+    if pk.beta_msg_sqrd != Z::from(16)
+        || pk.beta_r_sqrd != Z::from(2_000)
+        || pk.psf.s != Q::from(100)
+        || &pk.psf.gp.k + 2 != lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64
+    {
+        return Err(Error::ProfileMismatch(
+            "the final-signature bounds must match the generated profile",
         ));
     }
     Ok(())

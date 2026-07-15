@@ -12,6 +12,9 @@ use qfall_tools::primitive::psf::PSF;
 #[cfg(feature = "lazer-ffi")]
 pub(crate) mod lazer_statement;
 
+#[cfg(feature = "lazer-ffi")]
+pub use lazer_statement::{LazerD64FinalSignatureProof, LazerD64FinalSignatureProofProvider};
+
 /// A proof provider for a final-signature relation.
 pub trait FinalSignatureProofProvider<F: TagFunction> {
     type Witness;
