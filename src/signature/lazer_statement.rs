@@ -217,6 +217,7 @@ fn validate_proof_profile(pk: &PublicKey<BinaryEncoding>) -> Result<(), Error> {
         || pk.beta_r_sqrd != Z::from(2_000)
         || pk.psf.s != Q::from(100)
         || &pk.psf.gp.k + 2 != lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64
+        || &pk.psf.gp.modulus != pk.f.modulus()
     {
         return Err(Error::ProfileMismatch(
             "the final-signature bounds must match the generated profile",
@@ -670,5 +671,16 @@ mod tests {
         let equivalent = build_statement(&pk, &equivalent_message).unwrap();
         assert_eq!(original.offset, equivalent.offset);
         assert!(!provider.verify(&pk, &equivalent_message, &proof));
+    }
+
+    #[test]
+    fn final_signature_provider_rejects_mismatched_trapdoor_parameters() {
+        let (mut pk, message, witness) = profile_fixture();
+        pk.psf.gp.modulus = new_anticyclic(lazer_ffi::DEGREE as i64, 257).unwrap();
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        assert!(matches!(
+            provider.prove(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
     }
 }
