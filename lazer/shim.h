@@ -33,6 +33,8 @@ extern "C" {
 #define BS_LAZER_SIG_D64_OFFSET_COEFFS BS_LAZER_SIG_D64_DEGREE
 #define BS_LAZER_SIG_D64_WITNESS_COEFFS BS_LAZER_SIG_D64_LINEAR_COEFFS
 #define BS_LAZER_SIG_D64_TAG_COEFFS BS_LAZER_SIG_D64_TAG_BITS
+#define BS_LAZER_SIG_D64_PREIMAGE_BOUND_SQ 32640000u
+#define BS_LAZER_SIG_D64_RANDOMNESS_BOUND_SQ 2000u
 
 enum bs_lazer_status
 {
@@ -50,6 +52,11 @@ size_t bs_lazer_d64_proof_len (void);
 
 /* Expected encoded length for the advanced final-signature profile. */
 size_t bs_lazer_sig_d64_proof_len (void);
+
+/* Returns 1 exactly when the hidden values satisfy the fixed profile. */
+int bs_lazer_sig_d64_witness_is_valid (const int64_t *witness,
+                                       size_t witness_len,
+                                       const int64_t *tag, size_t tag_len);
 
 /* Proves A * w - c = 0; coins may be NULL for system randomness. */
 int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
