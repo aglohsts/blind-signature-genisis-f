@@ -175,8 +175,16 @@ fn validate_statement_profile(
     }
     if (pk.a.get_num_rows(), pk.a.get_num_columns())
         != (1, lazer_ffi::FINAL_PREIMAGE_COLUMNS as i64)
+        || (pk.ck.b1.get_num_rows(), pk.ck.b1.get_num_columns()) != (1, 2)
         || (pk.ck.b2.get_num_rows(), pk.ck.b2.get_num_columns())
             != (1, lazer_ffi::FINAL_RANDOMNESS_COLUMNS as i64)
+        || (
+            pk.f.coefficient_matrix().get_num_rows(),
+            pk.f.coefficient_matrix().get_num_columns(),
+        ) != (
+            lazer_ffi::DEGREE as i64,
+            lazer_ffi::FINAL_TAG_COEFFICIENTS as i64,
+        )
         || pk.f.encoding_length() != lazer_ffi::FINAL_TAG_COEFFICIENTS as i64
     {
         return Err(Error::ProfileMismatch(
@@ -680,6 +688,27 @@ mod tests {
         let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
         assert!(matches!(
             provider.prove(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_incompatible_final_signature_public_layouts() {
+        let (mut pk, _, witness) = profile_fixture();
+        pk.ck.b1 = MatPolynomialRingZq::from((&MatPolyOverZ::new(1, 3), pk.f.modulus()));
+        assert!(matches!(
+            build_inputs(&pk, &MatPolyOverZ::new(3, 1), &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+
+        let (mut pk, message, witness) = profile_fixture();
+        pk.f = BinaryEncoding::new(
+            2,
+            lazer_ffi::FINAL_TAG_COEFFICIENTS as i64,
+            pk.f.modulus().clone(),
+        );
+        assert!(matches!(
+            build_inputs(&pk, &message, &witness),
             Err(Error::ProfileMismatch(_))
         ));
     }
