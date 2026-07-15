@@ -1,5 +1,6 @@
 #include "shim.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "lazer.h"
@@ -154,4 +155,51 @@ bs_lazer_sig_d64_prove (
     return BS_LAZER_INTERNAL_ERROR;
   *proof_len = actual;
   return BS_LAZER_OK;
+}
+
+int
+bs_lazer_sig_d64_verify (
+    const int64_t *linear, size_t linear_len, const int64_t *tag_matrix,
+    size_t tag_matrix_len, const int64_t *offset, size_t offset_len,
+    const uint8_t ppseed[32], const uint8_t *proof, size_t proof_len)
+{
+  const size_t guard_capacity = bs_lazer_sig_d64_proof_capacity ();
+  uint8_t *guarded_proof;
+  size_t consumed = 0;
+  int accept;
+  int status;
+  bs_sig_d64_statement statement;
+  lnp_verifier_state_t verifier;
+
+  if (linear == NULL || tag_matrix == NULL || offset == NULL
+      || ppseed == NULL || proof == NULL
+      || linear_len != BS_LAZER_SIG_D64_LINEAR_COEFFS
+      || tag_matrix_len != BS_LAZER_SIG_D64_TAG_MATRIX_COEFFS
+      || offset_len != BS_LAZER_SIG_D64_OFFSET_COEFFS || proof_len == 0
+      || proof_len > guard_capacity)
+    return BS_LAZER_INVALID_ARGUMENT;
+  status = bs_lazer_init ();
+  if (status != BS_LAZER_OK)
+    return status;
+
+  guarded_proof = calloc (guard_capacity, 1);
+  if (guarded_proof == NULL)
+    return BS_LAZER_INTERNAL_ERROR;
+  memcpy (guarded_proof, proof, proof_len);
+
+  bs_sig_d64_statement_init (&statement, linear, tag_matrix, offset);
+  lnp_verifier_init (verifier, ppseed, blind_sig_sig_d64);
+  lnp_verifier_set_statement_evaleqs (
+      verifier, statement.quadratic_ptrs, statement.linear_ptrs,
+      statement.constant_ptrs, BS_SIG_D64_EQUATIONS);
+  lnp_verifier_set_statement_l2 (verifier, statement.l2_ptrs, NULL, NULL);
+  lnp_verifier_set_statement_bin (verifier, NULL, statement.binary_m, NULL);
+  lnp_verifier_set_statement_arp (verifier, statement.arp_s, NULL, NULL);
+  accept = lnp_verifier_verify (verifier, guarded_proof, &consumed);
+
+  lnp_verifier_clear (verifier);
+  bs_sig_d64_statement_clear (&statement);
+  free (guarded_proof);
+
+  return accept == 1 && consumed == proof_len ? 1 : 0;
 }

@@ -69,6 +69,12 @@ int bs_lazer_sig_d64_prove (
     size_t tag_len, const uint8_t ppseed[32], const uint8_t coins[32],
     uint8_t *proof, size_t proof_capacity, size_t *proof_len);
 
+/* Verifies the same coefficient statement against an encoded proof. */
+int bs_lazer_sig_d64_verify (
+    const int64_t *linear, size_t linear_len, const int64_t *tag_matrix,
+    size_t tag_matrix_len, const int64_t *offset, size_t offset_len,
+    const uint8_t ppseed[32], const uint8_t *proof, size_t proof_len);
+
 /* Proves A * w - c = 0; coins may be NULL for system randomness. */
 int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
                         size_t c_len, const int64_t *w, size_t w_len,
