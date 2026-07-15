@@ -580,4 +580,44 @@ mod tests {
             Err(Error::CoefficientOutOfRange)
         ));
     }
+
+    #[test]
+    fn final_signature_provider_round_trip_and_tampering_rejection() {
+        let (pk, message, witness) = profile_fixture();
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        let proof = provider
+            .prove(&pk, &message, &witness)
+            .expect("prove final signature");
+
+        assert!(provider.verify(&pk, &message, &proof));
+        assert!(!LazerD64FinalSignatureProofProvider::new([8; 32]).verify(&pk, &message, &proof));
+
+        let mut altered_message = message.clone();
+        altered_message
+            .set_entry(0, 0, PolyOverZ::from(-2))
+            .unwrap();
+        assert!(!provider.verify(&pk, &altered_message, &proof));
+
+        let mut altered_bytes = proof.as_bytes().to_vec();
+        altered_bytes[100] ^= 1;
+        let altered_proof = LazerD64FinalSignatureProof::from_bytes(altered_bytes);
+        assert!(!provider.verify(&pk, &message, &altered_proof));
+    }
+
+    #[test]
+    fn final_signature_provider_rejects_invalid_scheme_inputs() {
+        let (mut pk, message, mut witness) = profile_fixture();
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        witness.s.set_entry(0, 0, PolyOverZ::from(1)).unwrap();
+        assert_eq!(
+            provider.prove(&pk, &message, &witness),
+            Err(Error::InvalidInput)
+        );
+
+        pk.beta_msg_sqrd = Z::from(17);
+        assert!(matches!(
+            provider.prove(&pk, &message, &witness),
+            Err(Error::ProfileMismatch(_))
+        ));
+    }
 }
