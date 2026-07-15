@@ -276,6 +276,47 @@ mod tests {
     }
 
     #[test]
+    fn binary_relation_enforces_hidden_norm_bounds() {
+        let psf = toy_psf();
+        let f = BinaryEncoding::new(1, 10, psf.gp.modulus.clone());
+        let (pk, sk) = key_gen(f, psf, toy_key_gen_params(2000));
+        let m = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+        let (msg, st) = user_commit(&pk, &m);
+        let resp = signer_respond(&pk, &sk, &msg).expect("signer aborted");
+        let tag_encoding = pk.f.encode_tag(&resp.x);
+        let tag_image = pk.f.eval_encoding(&tag_encoding).unwrap();
+
+        let mut s_shift = MatPolyOverZ::new(resp.s.get_num_rows(), 1);
+        s_shift
+            .set_entry(0, 0, PolyOverZ::from(10 * Q_MOD))
+            .unwrap();
+        let oversized_s = &resp.s + &s_shift;
+        let s_ring =
+            qfall_math::integer_mod_q::MatPolynomialRingZq::from((&oversized_s, pk.f.modulus()));
+        assert_eq!(&pk.a * &s_ring, &tag_image + &pk.ck.commit(&m, &st.r),);
+        let bad_s_witness = BinarySignatureWitness {
+            tag_encoding: tag_encoding.clone(),
+            s: oversized_s,
+            r: st.r.clone(),
+        };
+        assert!(!binary_relation_holds(&pk, &m, &bad_s_witness));
+
+        let mut r_shift = MatPolyOverZ::new(st.r.get_num_rows(), 1);
+        r_shift.set_entry(0, 0, PolyOverZ::from(Q_MOD)).unwrap();
+        let oversized_r = &st.r + &r_shift;
+        assert_eq!(
+            pk.psf.f_a(&pk.a, &resp.s),
+            tag_image + pk.ck.commit(&m, &oversized_r),
+        );
+        let bad_r_witness = BinarySignatureWitness {
+            tag_encoding,
+            s: resp.s,
+            r: oversized_r,
+        };
+        assert!(!binary_relation_holds(&pk, &m, &bad_r_witness));
+    }
+
+    #[test]
     fn honest_signature_verifies() {
         let (pk, sk, m) = setup();
         let sig = honest_signature(&pk, &sk, &m);
