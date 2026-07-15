@@ -712,4 +712,19 @@ mod tests {
             Err(Error::ProfileMismatch(_))
         ));
     }
+
+    #[test]
+    fn final_signature_provider_rejects_malformed_proof_lengths() {
+        let (pk, message, _) = profile_fixture();
+        let provider = LazerD64FinalSignatureProofProvider::new([7; 32]);
+        let empty = LazerD64FinalSignatureProof::from_bytes(Vec::new());
+        assert!(!provider.verify(&pk, &message, &empty));
+
+        let oversized = LazerD64FinalSignatureProof::from_bytes(vec![
+            0;
+            lazer_ffi::final_signature_proof_capacity()
+                + 1
+        ]);
+        assert!(!provider.verify(&pk, &message, &oversized));
+    }
 }
