@@ -10,6 +10,14 @@ pub const COMMITMENT_COLUMNS: usize = 4;
 pub const MATRIX_COEFFICIENTS: usize = COMMITMENT_COLUMNS * DEGREE;
 pub const STATEMENT_COEFFICIENTS: usize = DEGREE;
 pub const WITNESS_COEFFICIENTS: usize = COMMITMENT_COLUMNS * DEGREE;
+pub const FINAL_PREIMAGE_COLUMNS: usize = 51;
+pub const FINAL_RANDOMNESS_COLUMNS: usize = 2;
+pub const FINAL_BOUNDED_COLUMNS: usize = FINAL_PREIMAGE_COLUMNS + FINAL_RANDOMNESS_COLUMNS;
+pub const FINAL_TAG_COEFFICIENTS: usize = DEGREE;
+pub const FINAL_LINEAR_COEFFICIENTS: usize = FINAL_BOUNDED_COLUMNS * DEGREE;
+pub const FINAL_TAG_MATRIX_COEFFICIENTS: usize = DEGREE * FINAL_TAG_COEFFICIENTS;
+pub const FINAL_OFFSET_COEFFICIENTS: usize = DEGREE;
+pub const FINAL_WITNESS_COEFFICIENTS: usize = FINAL_LINEAR_COEFFICIENTS;
 
 const OK: i32 = 0;
 const INVALID_ARGUMENT: i32 = -1;
@@ -37,6 +45,35 @@ unsafe extern "C" {
         a_len: usize,
         c: *const i64,
         c_len: usize,
+        ppseed: *const u8,
+        proof: *const u8,
+        proof_len: usize,
+    ) -> i32;
+    fn bs_lazer_sig_d64_proof_capacity() -> usize;
+    fn bs_lazer_sig_d64_prove(
+        linear: *const i64,
+        linear_len: usize,
+        tag_matrix: *const i64,
+        tag_matrix_len: usize,
+        offset: *const i64,
+        offset_len: usize,
+        witness: *const i64,
+        witness_len: usize,
+        tag: *const i64,
+        tag_len: usize,
+        ppseed: *const u8,
+        coins: *const u8,
+        proof: *mut u8,
+        proof_capacity: usize,
+        proof_len: *mut usize,
+    ) -> i32;
+    fn bs_lazer_sig_d64_verify(
+        linear: *const i64,
+        linear_len: usize,
+        tag_matrix: *const i64,
+        tag_matrix_len: usize,
+        offset: *const i64,
+        offset_len: usize,
         ppseed: *const u8,
         proof: *const u8,
         proof_len: usize,
@@ -126,6 +163,126 @@ pub fn version() -> Result<&'static str, Error> {
 pub fn proof_len() -> usize {
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_d64_proof_len() }
+}
+
+/// Returns the guarded output capacity for the advanced signature profile.
+pub fn final_signature_proof_capacity() -> usize {
+    // SAFETY: Reads constants from the generated profile and C shim.
+    unsafe { bs_lazer_sig_d64_proof_capacity() }
+}
+
+/// Proves the fixed coefficient-level final-signature relation.
+pub fn prove_final_signature(
+    linear: &[i64],
+    tag_matrix: &[i64],
+    offset: &[i64],
+    witness: &[i64],
+    tag: &[i64],
+    ppseed: &[u8; 32],
+    coins: Option<&[u8; 32]>,
+) -> Result<Vec<u8>, Error> {
+    require_len(
+        "final-signature linear matrix",
+        linear.len(),
+        FINAL_LINEAR_COEFFICIENTS,
+    )?;
+    require_len(
+        "final-signature tag matrix",
+        tag_matrix.len(),
+        FINAL_TAG_MATRIX_COEFFICIENTS,
+    )?;
+    require_len(
+        "final-signature offset",
+        offset.len(),
+        FINAL_OFFSET_COEFFICIENTS,
+    )?;
+    require_len(
+        "final-signature witness",
+        witness.len(),
+        FINAL_WITNESS_COEFFICIENTS,
+    )?;
+    require_len("final-signature tag", tag.len(), FINAL_TAG_COEFFICIENTS)?;
+
+    let mut proof = vec![0; final_signature_proof_capacity()];
+    let mut written = 0;
+    let coins_ptr = coins.map_or(std::ptr::null(), |value| value.as_ptr());
+    // SAFETY: All input lengths and the owned output capacity are checked above.
+    let status = unsafe {
+        bs_lazer_sig_d64_prove(
+            linear.as_ptr(),
+            linear.len(),
+            tag_matrix.as_ptr(),
+            tag_matrix.len(),
+            offset.as_ptr(),
+            offset.len(),
+            witness.as_ptr(),
+            witness.len(),
+            tag.as_ptr(),
+            tag.len(),
+            ppseed.as_ptr(),
+            coins_ptr,
+            proof.as_mut_ptr(),
+            proof.len(),
+            &mut written,
+        )
+    };
+    status_result(status)?;
+    if written == 0 || written > proof.len() {
+        return Err(Error::Internal);
+    }
+    proof.truncate(written);
+    Ok(proof)
+}
+
+/// Verifies a proof for the fixed coefficient-level final-signature relation.
+pub fn verify_final_signature(
+    linear: &[i64],
+    tag_matrix: &[i64],
+    offset: &[i64],
+    ppseed: &[u8; 32],
+    proof: &[u8],
+) -> Result<bool, Error> {
+    require_len(
+        "final-signature linear matrix",
+        linear.len(),
+        FINAL_LINEAR_COEFFICIENTS,
+    )?;
+    require_len(
+        "final-signature tag matrix",
+        tag_matrix.len(),
+        FINAL_TAG_MATRIX_COEFFICIENTS,
+    )?;
+    require_len(
+        "final-signature offset",
+        offset.len(),
+        FINAL_OFFSET_COEFFICIENTS,
+    )?;
+    if proof.is_empty() || proof.len() > final_signature_proof_capacity() {
+        return Ok(false);
+    }
+
+    // SAFETY: Input lengths are checked above and the proof is read-only.
+    let status = unsafe {
+        bs_lazer_sig_d64_verify(
+            linear.as_ptr(),
+            linear.len(),
+            tag_matrix.as_ptr(),
+            tag_matrix.len(),
+            offset.as_ptr(),
+            offset.len(),
+            ppseed.as_ptr(),
+            proof.as_ptr(),
+            proof.len(),
+        )
+    };
+    match status {
+        1 => Ok(true),
+        0 => Ok(false),
+        other => {
+            status_result(other)?;
+            Err(Error::UnexpectedStatus(other))
+        }
+    }
 }
 
 /// Proves the fixed commitment relation. Pass `None` for system randomness or
