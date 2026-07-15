@@ -368,6 +368,21 @@ mod tests {
         (a, c, witness)
     }
 
+    fn final_signature_fixture() -> (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>) {
+        let mut linear = vec![0; FINAL_LINEAR_COEFFICIENTS];
+        let mut tag_matrix = vec![0; FINAL_TAG_MATRIX_COEFFICIENTS];
+        let mut offset = vec![0; FINAL_OFFSET_COEFFICIENTS];
+        let mut witness = vec![0; FINAL_WITNESS_COEFFICIENTS];
+        let mut tag = vec![0; FINAL_TAG_COEFFICIENTS];
+        witness[63] = 2;
+        linear[1] = 1;
+        offset[0] = 2;
+        tag[7] = 1;
+        tag_matrix[3 * FINAL_TAG_COEFFICIENTS + 7] = 5;
+        offset[3] = -5;
+        (linear, tag_matrix, offset, witness, tag)
+    }
+
     #[test]
     fn reports_expected_profile_size() {
         assert_eq!(proof_len(), 16_166);
@@ -401,6 +416,46 @@ mod tests {
         assert_eq!(
             prove(&a, &c, &witness, &[0; 32], Some(&[1; 32])),
             Err(Error::InvalidInput)
+        );
+    }
+
+    #[test]
+    fn final_signature_proof_round_trip_and_tampering_rejection() {
+        let (linear, tag_matrix, mut offset, witness, tag) = final_signature_fixture();
+        let ppseed = [7; 32];
+        let coins = [9; 32];
+        let mut proof = prove_final_signature(
+            &linear,
+            &tag_matrix,
+            &offset,
+            &witness,
+            &tag,
+            &ppseed,
+            Some(&coins),
+        )
+        .expect("prove final signature");
+
+        assert_eq!(final_signature_proof_capacity(), 63_172);
+        assert!(
+            verify_final_signature(&linear, &tag_matrix, &offset, &ppseed, &proof)
+                .expect("verify final signature")
+        );
+        offset[0] += 1;
+        assert!(
+            !verify_final_signature(&linear, &tag_matrix, &offset, &ppseed, &proof)
+                .expect("reject changed statement")
+        );
+        offset[0] -= 1;
+        proof[100] ^= 1;
+        assert!(
+            !verify_final_signature(&linear, &tag_matrix, &offset, &ppseed, &proof)
+                .expect("reject changed proof")
+        );
+        proof[100] ^= 1;
+        proof.pop();
+        assert!(
+            !verify_final_signature(&linear, &tag_matrix, &offset, &ppseed, &proof)
+                .expect("reject shortened proof")
         );
     }
 }
