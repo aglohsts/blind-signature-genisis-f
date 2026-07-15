@@ -458,4 +458,34 @@ mod tests {
                 .expect("reject shortened proof")
         );
     }
+
+    #[test]
+    fn profiles_round_trip_in_sequence() {
+        let (a, mut c, witness) = identity_fixture();
+        let ppseed = [7; 32];
+        let coins = [9; 32];
+        let mut proof = prove(&a, &c, &witness, &ppseed, Some(&coins)).expect("prove");
+        assert!(verify(&a, &c, &ppseed, &proof).expect("verify"));
+        c[0] = 2;
+        assert!(!verify(&a, &c, &ppseed, &proof).expect("reject"));
+        c[0] = 1;
+        *proof.last_mut().expect("fixed proof buffer") = 1;
+        assert!(!verify(&a, &c, &ppseed, &proof).expect("padding reject"));
+
+        let (linear, tag_matrix, offset, witness, tag) = final_signature_fixture();
+        let proof = prove_final_signature(
+            &linear,
+            &tag_matrix,
+            &offset,
+            &witness,
+            &tag,
+            &ppseed,
+            Some(&coins),
+        )
+        .expect("prove final signature");
+        assert!(
+            verify_final_signature(&linear, &tag_matrix, &offset, &ppseed, &proof)
+                .expect("verify final signature")
+        );
+    }
 }
