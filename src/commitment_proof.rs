@@ -109,10 +109,13 @@ mod lazer {
         if modulus.get_degree() != lazer_ffi::DEGREE as i64 {
             return Err(Error::ProfileMismatch("the ring degree must be 64"));
         }
-        if modulus.get_q() != Z::from(257) {
-            return Err(Error::ProfileMismatch("the ring modulus must be 257"));
+        if modulus.get_q() != Z::from(281_474_976_711_349_u64) {
+            return Err(Error::ProfileMismatch(
+                "the ring modulus must match the advanced profile",
+            ));
         }
-        let expected_modulus = new_anticyclic(lazer_ffi::DEGREE as i64, 257).unwrap();
+        let expected_modulus =
+            new_anticyclic(lazer_ffi::DEGREE as i64, 281_474_976_711_349_u64).unwrap();
         if modulus != &expected_modulus {
             return Err(Error::ProfileMismatch(
                 "the polynomial modulus must be X^64 + 1",

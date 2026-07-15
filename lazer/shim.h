@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 #define BS_LAZER_D64_DEGREE 64u
+#define BS_LAZER_D64_MODULUS 281474976711349LL
 #define BS_LAZER_D64_COMMITMENT_COLUMNS 4u
 #define BS_LAZER_D64_PADDED_COLUMNS 10u
 #define BS_LAZER_D64_MATRIX_COEFFS                                           \

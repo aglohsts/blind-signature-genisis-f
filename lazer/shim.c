@@ -47,13 +47,13 @@ bs_lazer_sig_d64_proof_capacity (void)
 }
 
 static int64_t
-center_mod_257 (int64_t value)
+center_mod_statement_q (int64_t value)
 {
-  int64_t reduced = value % 257;
+  int64_t reduced = value % BS_LAZER_D64_MODULUS;
   if (reduced < 0)
-    reduced += 257;
-  if (reduced > 128)
-    reduced -= 257;
+    reduced += BS_LAZER_D64_MODULUS;
+  if (reduced > BS_LAZER_D64_MODULUS / 2)
+    reduced -= BS_LAZER_D64_MODULUS;
   return reduced;
 }
 
@@ -89,9 +89,9 @@ load_statement (polymat_t A, polyvec_t t, const int64_t *a,
   size_t i;
 
   for (i = 0; i < BS_LAZER_D64_MATRIX_COEFFS; i++)
-    padded_a[i] = center_mod_257 (a[i]);
+    padded_a[i] = center_mod_statement_q (a[i]);
   for (i = 0; i < BS_LAZER_D64_STATEMENT_COEFFS; i++)
-    normalized_c[i] = center_mod_257 (c[i]);
+    normalized_c[i] = center_mod_statement_q (c[i]);
 
   polymat_set_i64 (A, padded_a);
   polyvec_set_coeffvec_i64 (t, normalized_c);
@@ -132,7 +132,7 @@ bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
   if (status != BS_LAZER_OK)
     return status;
 
-  int_set_i64 (q, 257);
+  int_set_i64 (q, BS_LAZER_D64_MODULUS);
   polymat_alloc (A, ring, 1, BS_LAZER_D64_PADDED_COLUMNS);
   polyvec_alloc (witness, ring, BS_LAZER_D64_PADDED_COLUMNS);
   polyvec_alloc (t, ring, 1);
@@ -183,7 +183,7 @@ bs_lazer_d64_verify (const int64_t *a, size_t a_len, const int64_t *c,
   if (status != BS_LAZER_OK)
     return status;
 
-  int_set_i64 (q, 257);
+  int_set_i64 (q, BS_LAZER_D64_MODULUS);
   polymat_alloc (A, ring, 1, BS_LAZER_D64_PADDED_COLUMNS);
   polyvec_alloc (t, ring, 1);
   load_statement (A, t, a, c);

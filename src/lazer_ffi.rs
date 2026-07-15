@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn reports_expected_profile_size() {
-        assert_eq!(proof_len(), 16_166);
+        assert_eq!(proof_len(), 22_682);
     }
 
     #[test]

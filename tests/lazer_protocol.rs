@@ -25,7 +25,7 @@ use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use std::cell::RefCell;
 
 const D: i64 = 64;
-const Q_MOD: u64 = 257;
+const Q_MOD: u64 = 281_474_976_711_349;
 
 struct FixedTagFunction {
     modulus: ModulusPolynomialRingZq,

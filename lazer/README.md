@@ -21,9 +21,9 @@ independent of prior heap contents.
 [B_1 | B_2] * [m; r] - c = 0.
 ```
 
-It intentionally uses a separate integration ring (`d = 64`, `q = 257`)
-because LaZer's linear-proof generator requires a power-of-two degree of at
-least 64. The regular toy demo remains at `d = 8` and does not enable LaZer.
+It uses the advanced final-signature statement ring
+(`d = 64`, `q = 281474976711349`) so both LaZer proofs can share one public
+key. The regular toy demo remains at `d = 8` and does not enable LaZer.
 
 The generated relation has ten witness slots. The first four are
 `(m_0, m_1, r_0, r_1)`; the remaining six are binary padding slots whose
@@ -64,7 +64,7 @@ The shim accepts four matrix/witness polynomials and owns all LaZer-specific
 types. It pads the generated profile's other six columns with zero, validates
 the checked-in message/randomness bounds, and prevents the verifier from
 passing a short proof to LaZer's lengthless decoder. LaZer's parameter length
-is treated as a fixed 16,166-byte transport buffer: unused bytes after its
+is treated as a fixed 22,682-byte transport buffer: unused bytes after its
 variable-length encoding are zeroed and checked as canonical padding.
 
 ## Run the Rust integration tests
