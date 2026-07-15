@@ -16,8 +16,8 @@ randomness_bound_sq = 2_000
 m1 = preimage_length + randomness_length
 alpha = sqrt(preimage_bound_sq + randomness_bound_sq)
 
-# m stores the 64 binary tag coefficients in one polynomial.
-l = 1
+# m stores the binary tag, its preimage norm, and a modular inverse.
+l = 3
 nbin = 1
 
 n = [preimage_length, randomness_length]
