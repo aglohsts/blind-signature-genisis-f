@@ -38,6 +38,44 @@ pub struct BinarySignatureWitness {
     pub r: MatPolyOverZ,
 }
 
+/// A final signature containing only its proof.
+pub struct FinalSignature<P> {
+    pub proof: P,
+}
+
+/// Assembles a proof-based signature from an accepted issuing response.
+pub fn finalize_with_provider<P>(
+    pk: &PublicKey<BinaryEncoding>,
+    st: UserState,
+    resp: SignerResponse,
+    provider: &P,
+) -> Result<FinalSignature<P::Proof>, P::Error>
+where
+    P: FinalSignatureProofProvider<BinaryEncoding, Witness = BinarySignatureWitness>,
+{
+    let witness = BinarySignatureWitness {
+        tag_encoding: pk.f.encode_tag(&resp.x),
+        s: resp.s,
+        r: st.r,
+    };
+    provider
+        .prove(pk, &st.m, &witness)
+        .map(|proof| FinalSignature { proof })
+}
+
+/// Verifies a proof-based signature against its public message.
+pub fn verify_with_provider<P>(
+    pk: &PublicKey<BinaryEncoding>,
+    message: &MatPolyOverZ,
+    signature: &FinalSignature<P::Proof>,
+    provider: &P,
+) -> bool
+where
+    P: FinalSignatureProofProvider<BinaryEncoding>,
+{
+    provider.verify(pk, message, &signature.proof)
+}
+
 /// Checks the binary final-signature relation without producing a proof.
 pub fn binary_relation_holds(
     pk: &PublicKey<BinaryEncoding>,
