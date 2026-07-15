@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Report: "LaZer Integration Feasibility". */
+/* Reports: "LaZer Integration Feasibility" and "The Final-Signature Proof". */
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +19,21 @@ extern "C" {
 #define BS_LAZER_D64_WITNESS_COEFFS                                          \
   (BS_LAZER_D64_COMMITMENT_COLUMNS * BS_LAZER_D64_DEGREE)
 
+#define BS_LAZER_SIG_D64_DEGREE 64u
+#define BS_LAZER_SIG_D64_PREIMAGE_COLUMNS 51u
+#define BS_LAZER_SIG_D64_RANDOMNESS_COLUMNS 2u
+#define BS_LAZER_SIG_D64_BOUNDED_COLUMNS                                    \
+  (BS_LAZER_SIG_D64_PREIMAGE_COLUMNS                                        \
+   + BS_LAZER_SIG_D64_RANDOMNESS_COLUMNS)
+#define BS_LAZER_SIG_D64_TAG_BITS 64u
+#define BS_LAZER_SIG_D64_LINEAR_COEFFS                                      \
+  (BS_LAZER_SIG_D64_BOUNDED_COLUMNS * BS_LAZER_SIG_D64_DEGREE)
+#define BS_LAZER_SIG_D64_TAG_MATRIX_COEFFS                                  \
+  (BS_LAZER_SIG_D64_DEGREE * BS_LAZER_SIG_D64_TAG_BITS)
+#define BS_LAZER_SIG_D64_OFFSET_COEFFS BS_LAZER_SIG_D64_DEGREE
+#define BS_LAZER_SIG_D64_WITNESS_COEFFS BS_LAZER_SIG_D64_LINEAR_COEFFS
+#define BS_LAZER_SIG_D64_TAG_COEFFS BS_LAZER_SIG_D64_TAG_BITS
+
 enum bs_lazer_status
 {
   BS_LAZER_OK = 0,
@@ -32,6 +47,9 @@ int bs_lazer_init (void);
 
 /* Fixed transport length (LaZer's maximum encoded length) for this profile. */
 size_t bs_lazer_d64_proof_len (void);
+
+/* Expected encoded length for the advanced final-signature profile. */
+size_t bs_lazer_sig_d64_proof_len (void);
 
 /* Proves A * w - c = 0; coins may be NULL for system randomness. */
 int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,

@@ -5,8 +5,9 @@
 
 #include "lazer.h"
 #include "params_d64.h"
+#include "params_sig_d64.h"
 
-/* Report: "LaZer Integration Feasibility". */
+/* Reports: "LaZer Integration Feasibility" and "The Final-Signature Proof". */
 
 #define BS_LAZER_D64_PADDED_COEFFS                                           \
   (BS_LAZER_D64_PADDED_COLUMNS * BS_LAZER_D64_DEGREE)
@@ -31,6 +32,12 @@ size_t
 bs_lazer_d64_proof_len (void)
 {
   return (size_t)lin_params_get_prooflen (blind_sig_com_d64);
+}
+
+size_t
+bs_lazer_sig_d64_proof_len (void)
+{
+  return (size_t)blind_sig_sig_d64->prooflen;
 }
 
 static int64_t

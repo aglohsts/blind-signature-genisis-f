@@ -20,6 +20,7 @@ fn main() {
     println!("cargo:rerun-if-changed=lazer/shim.c");
     println!("cargo:rerun-if-changed=lazer/shim.h");
     println!("cargo:rerun-if-changed=lazer/params_d64.h");
+    println!("cargo:rerun-if-changed=lazer/params_sig_d64.h");
     println!("cargo:rerun-if-env-changed=LAZER_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=LAZER_LIB_DIR");
     println!("cargo:rerun-if-env-changed=LAZER_HEXL_LIB_DIR");
