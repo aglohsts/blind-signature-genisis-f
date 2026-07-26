@@ -3,4 +3,6 @@
 //! the report chapter "Prototype Implementation".
 
 pub mod binary_encoding;
+pub mod commitment;
 pub mod hash_to_ring;
+pub mod util;
