@@ -5,5 +5,6 @@
 pub mod binary_encoding;
 pub mod commitment;
 pub mod hash_to_ring;
+pub mod issue;
 pub mod keys;
 pub mod util;
