@@ -1,43 +1,68 @@
-//! Demo: evaluates both public functions. Toy parameters, not
-//! cryptographically sized.
+//! Demo: one full protocol run, then the two public functions. Toy
+//! parameters, not cryptographically sized.
 
 use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::hash_to_ring::HashToRing;
-use qfall_math::integer::Z;
-use qfall_tools::utils::common_moduli::new_anticyclic;
+use blind_sig::issue::{signer_respond, user_check, user_request};
+use blind_sig::keys::{Parameters, key_gen};
+use blind_sig::signature::{finalise, verify};
+use qfall_math::integer::{MatPolyOverZ, Z};
+use qfall_math::rational::Q;
+use qfall_tools::primitive::psf::PSFGPVRing;
+use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 
 const D: i64 = 8;
-const Q: u64 = 257;
-const ROWS: i64 = 2;
+const Q_MOD: u64 = 257;
 
 fn main() {
-    let modulus = new_anticyclic(D, Q).unwrap();
-    println!("== blind-sig public-function demo (toy parameters) ==");
-    println!("ring: R_q = Z_{Q}[X]/(X^{D} + 1), module rank n = {ROWS}\n");
+    println!("== blind-sig demo (toy parameters) ==");
+    println!("ring: R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank n = 1");
+    println!("NOTE: the signature is transparent until stage 3.\n");
 
-    let hash_function = HashToRing::new(
-        ROWS,
-        1u64 << 10,
-        1u64 << 20,
-        1u64 << 10,
-        modulus.clone(),
-        "blind-sig-demo",
-    );
-    let key = hash_function.sample_key();
-    println!("HashToRing: keyed and probabilistic, kappa = {key}");
-    for _ in 0..3 {
-        let input = hash_function.sample_input();
-        let randomness = hash_function.sample_randomness();
-        let value = hash_function.eval(&key, &input, &randomness);
-        println!("  f(kappa, {input}, {randomness}) = {value}");
-    }
+    let psf = PSFGPVRing {
+        gp: GadgetParametersRing::init_default(D, Q_MOD),
+        s: Q::from(100),
+        s_td: Q::from(1.005_f64),
+    };
+    let modulus = psf.gp.modulus.clone();
+    let function = HashToRing::new(1, 1u64 << 10, 1u64 << 20, 1u64 << 10, modulus.clone(), "demo");
+    let parameters = Parameters {
+        ell_m: 2,
+        ell_r: 2,
+        psi: 3,
+        message_bound_sqrd: Z::from(16),
+    };
 
-    let binary_function = BinaryEncoding::new(ROWS, 10, modulus);
+    let (public_key, secret_key) = key_gen(function, psf, parameters);
+    println!("KeyGen: kappa = {}", public_key.function_key);
+
+    let message = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
+    let (request, state) = user_request(&public_key, &message);
+    println!("Step 1: the user sends the commitment {}", request.commitment);
+
+    let response = signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
     println!(
-        "\nBinaryEncoding: fixed function, input space [{}]",
+        "Step 2: the signer returns mu = {}, xi = {}",
+        response.function_input, response.function_randomness
+    );
+
+    println!(
+        "Step 3: the user check passes: {}",
+        user_check(&public_key, &state, &response)
+    );
+
+    let signature = finalise(state, response);
+    println!(
+        "Step 4: verification returns {}\n",
+        verify(&public_key, &message, &signature)
+    );
+
+    let binary_function = BinaryEncoding::new(1, 10, modulus);
+    println!(
+        "BinaryEncoding, the fixed function, input space [{}]",
         binary_function.input_space()
     );
-    for input in [1u64, 2, 3] {
+    for input in [1u64, 2] {
         let input = Z::from(input);
         println!("  f({input}) = {}", binary_function.eval(&input));
     }
