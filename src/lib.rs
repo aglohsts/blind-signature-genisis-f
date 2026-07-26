@@ -7,4 +7,5 @@ pub mod commitment;
 pub mod hash_to_ring;
 pub mod issue;
 pub mod keys;
+pub mod signature;
 pub mod util;
