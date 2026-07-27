@@ -5,6 +5,7 @@ use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, key_gen};
+use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::rational::Q;
@@ -17,7 +18,7 @@ const Q_MOD: u64 = 257;
 fn main() {
     println!("== blind-sig demo (toy parameters) ==");
     println!("ring: R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank n = 1");
-    println!("NOTE: the signature is transparent until stage 3.\n");
+    println!("NOTE: pi_sig is transparent; pi_com is a Fiat-Shamir proof.\n");
 
     let psf = PSFGPVRing {
         gp: GadgetParametersRing::init_default(D, Q_MOD),
@@ -31,6 +32,10 @@ fn main() {
         ell_r: 2,
         psi: 3,
         message_bound_sqrd: Z::from(16),
+        proof: ProofParameters {
+            witness_inf: 20,
+            mask_inf: 8000,
+        },
     };
 
     let (public_key, secret_key) = key_gen(function, psf, parameters);
@@ -38,11 +43,11 @@ fn main() {
 
     let message = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
     let (request, state) = user_request(&public_key, &message);
-    println!("Step 1: the user sends the commitment {}", request.commitment);
+    println!("Step 1: the user sends the commitment and its proof");
 
     let response = signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
     println!(
-        "Step 2: the signer returns mu = {}, xi = {}",
+        "Step 2: the signer checked the proof and returns mu = {}, xi = {}",
         response.function_input, response.function_randomness
     );
 

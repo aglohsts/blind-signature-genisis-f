@@ -2,14 +2,16 @@
 //! Report: "Issuing protocol".
 
 use crate::keys::{PublicKey, SecretKey};
+use crate::proof_com::{self, Proof};
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::PSF;
 
-/// The request sent by the user. The proof pi_com is added in stage 3.
+/// The request sent by the user.
 pub struct Request {
     pub commitment: MatPolynomialRingZq,
+    pub proof: Proof,
 }
 
 /// What the user keeps between the two messages.
@@ -26,7 +28,8 @@ pub struct Response {
     pub preimage: MatPolyOverZ,
 }
 
-/// Step 1: the user samples r, commits, and keeps its state.
+/// Step 1: the user samples r, commits, proves knowledge of the
+/// opening, and keeps its state.
 pub fn user_request(public_key: &PublicKey, message: &MatPolyOverZ) -> (Request, UserState) {
     let degree = public_key.function.modulus().get_degree();
     assert!(
@@ -35,22 +38,37 @@ pub fn user_request(public_key: &PublicKey, message: &MatPolyOverZ) -> (Request,
     );
     let randomness = public_key.commitment_key.sample_randomness();
     let commitment = public_key.commitment_key.commit(message, &randomness);
+    let proof = proof_com::prove(
+        &public_key.commitment_key,
+        &public_key.proof_parameters,
+        message,
+        &randomness,
+        &commitment,
+    );
     let state = UserState {
         message: message.clone(),
         randomness,
         commitment: commitment.clone(),
     };
-    (Request { commitment }, state)
+    (Request { commitment, proof }, state)
 }
 
-/// Step 2: the signer samples mu and xi, then a short preimage for
-/// the target f(kappa, mu, xi) + c. It returns None when the preimage
-/// misses the norm bound.
+/// Step 2: the signer verifies the proof, then samples mu and xi and a
+/// short preimage for the target f(kappa, mu, xi) + c. It returns None
+/// when the proof fails or the preimage misses the norm bound.
 pub fn signer_respond(
     public_key: &PublicKey,
     secret_key: &SecretKey,
     request: &Request,
 ) -> Option<Response> {
+    if !proof_com::verify(
+        &public_key.commitment_key,
+        &public_key.proof_parameters,
+        &request.commitment,
+        &request.proof,
+    ) {
+        return None;
+    }
     let function_input = public_key.function.sample_input();
     let function_randomness = public_key.function.sample_randomness();
     let target = &public_key.function.eval(
@@ -161,6 +179,15 @@ mod tests {
             signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
         response.preimage = &response.preimage + &response.preimage;
         assert!(!user_check(&public_key, &state, &response));
+    }
+
+    #[test]
+    fn an_invalid_proof_makes_the_signer_abort() {
+        let (public_key, secret_key, message) = setup();
+        let (mut request, _) = user_request(&public_key, &message);
+        request.proof.message_response = &request.proof.message_response
+            + &request.proof.message_response;
+        assert!(signer_respond(&public_key, &secret_key, &request).is_none());
     }
 
     #[test]

@@ -3,6 +3,7 @@
 
 use crate::commitment::CommitmentKey;
 use crate::hash_to_ring::HashToRing;
+use crate::proof_com::ProofParameters;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::{PSF, PSFGPVRing};
@@ -13,6 +14,7 @@ pub struct Parameters {
     pub ell_r: i64,
     pub psi: i64,
     pub message_bound_sqrd: Z,
+    pub proof: ProofParameters,
 }
 
 /// The public key of the scheme.
@@ -23,6 +25,7 @@ pub struct PublicKey {
     pub function_key: Z,
     pub psf: PSFGPVRing,
     pub message_bound_sqrd: Z,
+    pub proof_parameters: ProofParameters,
 }
 
 /// The secret key: the trapdoor for `A`.
@@ -57,6 +60,7 @@ pub fn key_gen(
         function_key,
         psf,
         message_bound_sqrd: parameters.message_bound_sqrd,
+        proof_parameters: parameters.proof,
     };
     (public_key, SecretKey { trapdoor })
 }
@@ -85,6 +89,10 @@ pub mod tests {
             ell_r: 2,
             psi: 3,
             message_bound_sqrd: Z::from(16),
+            proof: ProofParameters {
+                witness_inf: 20,
+                mask_inf: 8000,
+            },
         }
     }
 
