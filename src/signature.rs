@@ -17,6 +17,12 @@ use qfall_math::integer::{MatPolyOverZ, MatZ, PolyOverZ, Z};
 use qfall_math::traits::{MatrixDimensions, MatrixGetEntry};
 use qfall_tools::primitive::psf::PSF;
 
+#[cfg(feature = "lazer-ffi")]
+pub mod lazer_statement;
+
+#[cfg(feature = "lazer-ffi")]
+pub use lazer_statement::{LazerSignatureProof, LazerSignatureProvider};
+
 /// A transparent signature. It carries the witness in the clear, so it
 /// gives no blindness.
 pub struct Signature<F: PublicFunction> {
