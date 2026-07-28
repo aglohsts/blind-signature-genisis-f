@@ -2,6 +2,10 @@
 
 use std::{env, path::PathBuf};
 
+/// Resolves one of the LaZer directories to an absolute path. The
+/// linker search paths are passed to rustc verbatim, so a relative
+/// value here would be resolved against a working directory this
+/// script does not control.
 fn required_dir(name: &str) -> PathBuf {
     let value = env::var_os(name).unwrap_or_else(|| {
         panic!("{name} must point to the directory containing the LaZer library")
@@ -9,11 +13,27 @@ fn required_dir(name: &str) -> PathBuf {
     let path = PathBuf::from(value);
     assert!(
         path.is_dir(),
-        "{} is not a directory: {}",
+        "{} is not a directory: {}\nRun scripts/build-lazer.sh first.",
         name,
         path.display()
     );
-    path
+    path.canonicalize()
+        .unwrap_or_else(|error| panic!("{} cannot be resolved: {error}", path.display()))
+}
+
+/// Fails with an actionable message rather than leaving a missing
+/// archive to the linker, which reports it without saying why.
+fn required_archive(dir: &PathBuf, file: &str, variable: &str) {
+    let path = dir.join(file);
+    assert!(
+        path.is_file(),
+        "{} was not found in {}, which {} points at.\n\
+         The directory exists but the library was not built. Run\n\
+         scripts/build-lazer.sh and check that it finishes.",
+        file,
+        dir.display(),
+        variable,
+    );
 }
 
 fn main() {
@@ -35,6 +55,15 @@ fn main() {
     let include_dir = required_dir("LAZER_INCLUDE_DIR");
     let lazer_dir = required_dir("LAZER_LIB_DIR");
     let hexl_dir = required_dir("LAZER_HEXL_LIB_DIR");
+
+    assert!(
+        include_dir.join("lazer.h").is_file(),
+        "lazer.h was not found in {}, which LAZER_INCLUDE_DIR points at.\n\
+         Run scripts/build-lazer.sh and check that it finishes.",
+        include_dir.display(),
+    );
+    required_archive(&lazer_dir, "liblazer.a", "LAZER_LIB_DIR");
+    required_archive(&hexl_dir, "libhexl.a", "LAZER_HEXL_LIB_DIR");
 
     cc::Build::new()
         .file("lazer/shim.c")
