@@ -2,10 +2,12 @@
 //! parameters, not cryptographically sized.
 
 use blind_sig::binary_encoding::BinaryEncoding;
+use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, key_gen};
 use blind_sig::proof_com::ProofParameters;
+use blind_sig::public_function::PublicFunction;
 use blind_sig::signature::{finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::rational::Q;
@@ -42,10 +44,12 @@ fn main() {
     println!("KeyGen: kappa = {}", public_key.function_key);
 
     let message = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
-    let (request, state) = user_request(&public_key, &message);
+    let (request, state) =
+        user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     println!("Step 1: the user sends the commitment and its proof");
 
-    let response = signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+    let response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+        .expect("signer aborted");
     println!(
         "Step 2: the signer checked the proof and returns mu = {}, xi = {}",
         response.function_input, response.function_randomness
@@ -69,6 +73,6 @@ fn main() {
     );
     for input in [1u64, 2] {
         let input = Z::from(input);
-        println!("  f({input}) = {}", binary_function.eval(&input));
+        println!("  f({input}) = {}", binary_function.eval(&(), &input, &()));
     }
 }

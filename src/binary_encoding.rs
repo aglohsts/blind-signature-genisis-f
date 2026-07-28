@@ -2,6 +2,7 @@
 //! `f(mu) = Coeffs^{-1}(B * enc(mu))` of BLNS, Section 3.1.2.
 //! Report: "Instantiations of f".
 
+use crate::public_function::PublicFunction;
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq, ModulusPolynomialRingZq};
 use qfall_math::traits::{FromCoefficientEmbedding, MatrixSetEntry, Pow};
@@ -41,28 +42,58 @@ impl BinaryEncoding {
         Z::from(2).pow(self.t).unwrap()
     }
 
-    /// Samples the function input `mu` from `M`.
-    pub fn sample_input(&self) -> Z {
-        Z::sample_uniform(Z::ONE, self.input_space() + Z::ONE).unwrap()
+    /// Returns the binary decomposition of `input - 1`.
+    fn encode(&self, input: &Z) -> MatZ {
+        let value = i64::try_from(&(input - Z::ONE)).unwrap();
+        let mut encoding = MatZ::new(self.t, 1);
+        for i in 0..self.t {
+            encoding.set_entry(i, 0, (value >> i) & 1).unwrap();
+        }
+        encoding
     }
+}
 
-    /// Reports whether `input` lies in `M`.
-    pub fn contains_input(&self, input: &Z) -> bool {
-        input >= &Z::ONE && input <= &self.input_space()
-    }
+impl PublicFunction for BinaryEncoding {
+    /// The key space and the randomness space are singletons, so both
+    /// are the unit type.
+    type Key = ();
+    type Input = Z;
+    type Randomness = ();
 
     /// Returns the module rank `n`.
-    pub fn rows(&self) -> i64 {
+    fn rows(&self) -> i64 {
         self.rows
     }
 
     /// Returns the modulus of `R_q`.
-    pub fn modulus(&self) -> &ModulusPolynomialRingZq {
+    fn modulus(&self) -> &ModulusPolynomialRingZq {
         &self.modulus
     }
 
+    fn sample_key(&self) {}
+
+    /// Samples the function input `mu` from `M`.
+    fn sample_input(&self) -> Z {
+        Z::sample_uniform(Z::ONE, self.input_space() + Z::ONE).unwrap()
+    }
+
+    fn sample_randomness(&self) {}
+
+    fn contains_key(&self, _key: &()) -> bool {
+        true
+    }
+
+    /// Reports whether `input` lies in `M`.
+    fn contains_input(&self, input: &Z) -> bool {
+        input >= &Z::ONE && input <= &self.input_space()
+    }
+
+    fn contains_randomness(&self, _randomness: &()) -> bool {
+        true
+    }
+
     /// Evaluates `f(mu)` as an `n x 1` matrix over `R_q`.
-    pub fn eval(&self, input: &Z) -> MatPolynomialRingZq {
+    fn eval(&self, _key: &(), input: &Z, _randomness: &()) -> MatPolynomialRingZq {
         assert!(self.contains_input(input), "the input is outside M");
         let encoding = MatZq::from((&self.encode(input), self.modulus.get_q()));
         let product = &self.b_mat * &encoding;
@@ -72,16 +103,6 @@ impl BinaryEncoding {
             self.modulus.get_degree() - 1,
         ));
         MatPolynomialRingZq::from((&polynomials, &self.modulus))
-    }
-
-    /// Returns the binary decomposition of `input - 1`.
-    fn encode(&self, input: &Z) -> MatZ {
-        let value = i64::try_from(&(input - Z::ONE)).unwrap();
-        let mut encoding = MatZ::new(self.t, 1);
-        for i in 0..self.t {
-            encoding.set_entry(i, 0, (value >> i) & 1).unwrap();
-        }
-        encoding
     }
 }
 
@@ -108,10 +129,10 @@ mod tests {
     #[test]
     fn eval_dimensions_and_determinism() {
         let f = setup();
-        let value = f.eval(&Z::from(5));
+        let value = f.eval(&(), &Z::from(5), &());
         assert_eq!(ROWS, value.get_num_rows());
         assert_eq!(1, value.get_num_columns());
-        assert_eq!(value, f.eval(&Z::from(5)));
+        assert_eq!(value, f.eval(&(), &Z::from(5), &()));
     }
 
     /// enc(1 - 1) is the zero vector, so f evaluates to zero.
@@ -119,13 +140,13 @@ mod tests {
     fn eval_of_one_is_zero() {
         let f = setup();
         let zero = MatPolynomialRingZq::from((&MatPolyOverZ::new(ROWS, 1), f.modulus()));
-        assert_eq!(zero, f.eval(&Z::ONE));
+        assert_eq!(zero, f.eval(&(), &Z::ONE, &()));
     }
 
     #[test]
     fn distinct_inputs_distinct_outputs() {
         let f = setup();
-        let values: Vec<_> = (1..=8).map(|i| f.eval(&Z::from(i))).collect();
+        let values: Vec<_> = (1..=8).map(|i| f.eval(&(), &Z::from(i), &())).collect();
         for i in 0..values.len() {
             for j in (i + 1)..values.len() {
                 assert_ne!(values[i], values[j]);
@@ -144,6 +165,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "outside M")]
     fn input_outside_the_space_is_rejected() {
-        setup().eval(&Z::ZERO);
+        setup().eval(&(), &Z::ZERO, &());
     }
 }

@@ -2,6 +2,7 @@
 //! `f(kappa, mu, xi) = H(sep || kappa || mu || xi)` over `R_q^n`.
 //! Report: "Instantiations of f".
 
+use crate::public_function::PublicFunction;
 use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 use qfall_schemes::hash::{HashInto, sha256::HashMatPolynomialRingZq};
@@ -52,44 +53,56 @@ impl HashToRing {
         }
     }
 
-    /// Samples the function key `kappa` from `K`.
-    pub fn sample_key(&self) -> Z {
-        sample_in(&self.key_space)
-    }
+}
 
-    /// Samples the function input `mu` from `M`.
-    pub fn sample_input(&self) -> Z {
-        sample_in(&self.input_space)
-    }
-
-    /// Samples the function randomness `xi` from `X`.
-    pub fn sample_randomness(&self) -> Z {
-        sample_in(&self.randomness_space)
-    }
-
-    /// Reports whether `input` lies in `M`.
-    pub fn contains_input(&self, input: &Z) -> bool {
-        is_in(input, &self.input_space)
-    }
-
-    /// Reports whether `randomness` lies in `X`.
-    pub fn contains_randomness(&self, randomness: &Z) -> bool {
-        is_in(randomness, &self.randomness_space)
-    }
+impl PublicFunction for HashToRing {
+    type Key = Z;
+    type Input = Z;
+    type Randomness = Z;
 
     /// Returns the module rank `n`.
-    pub fn rows(&self) -> i64 {
+    fn rows(&self) -> i64 {
         self.hasher.rows
     }
 
     /// Returns the modulus of `R_q`.
-    pub fn modulus(&self) -> &ModulusPolynomialRingZq {
+    fn modulus(&self) -> &ModulusPolynomialRingZq {
         &self.hasher.modulus
     }
 
+    /// Samples the function key `kappa` from `K`.
+    fn sample_key(&self) -> Z {
+        sample_in(&self.key_space)
+    }
+
+    /// Samples the function input `mu` from `M`.
+    fn sample_input(&self) -> Z {
+        sample_in(&self.input_space)
+    }
+
+    /// Samples the function randomness `xi` from `X`.
+    fn sample_randomness(&self) -> Z {
+        sample_in(&self.randomness_space)
+    }
+
+    /// Reports whether `key` lies in `K`.
+    fn contains_key(&self, key: &Z) -> bool {
+        is_in(key, &self.key_space)
+    }
+
+    /// Reports whether `input` lies in `M`.
+    fn contains_input(&self, input: &Z) -> bool {
+        is_in(input, &self.input_space)
+    }
+
+    /// Reports whether `randomness` lies in `X`.
+    fn contains_randomness(&self, randomness: &Z) -> bool {
+        is_in(randomness, &self.randomness_space)
+    }
+
     /// Evaluates `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`.
-    pub fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq {
-        assert!(is_in(key, &self.key_space), "the key is outside K");
+    fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq {
+        assert!(self.contains_key(key), "the key is outside K");
         assert!(self.contains_input(input), "the input is outside M");
         assert!(
             self.contains_randomness(randomness),

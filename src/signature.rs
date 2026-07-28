@@ -1,25 +1,29 @@
 //! Finalisation and verification with a transparent signature.
-//! The proof pi_sig replaces it in stage 3.
 //! Report: "Finalisation" and "Verification".
+//!
+//! The signature carries the witness in the clear, so it works for
+//! every public function but provides no blindness. The proof-based
+//! path is added with the final-signature relation.
 
 use crate::issue::{Response, UserState};
 use crate::keys::PublicKey;
+use crate::public_function::PublicFunction;
 use crate::util::norm_eucl_sqrd;
-use qfall_math::integer::{MatPolyOverZ, Z};
+use qfall_math::integer::MatPolyOverZ;
 use qfall_tools::primitive::psf::PSF;
 
 /// A transparent signature. It carries the witness in the clear, so it
 /// gives no blindness.
-pub struct Signature {
-    pub function_input: Z,
-    pub function_randomness: Z,
+pub struct Signature<F: PublicFunction> {
+    pub function_input: F::Input,
+    pub function_randomness: F::Randomness,
     pub preimage: MatPolyOverZ,
     pub randomness: MatPolyOverZ,
 }
 
 /// Step 4: the user builds the signature from its state and the
 /// response. The caller runs the user check first.
-pub fn finalise(state: UserState, response: Response) -> Signature {
+pub fn finalise<F: PublicFunction>(state: UserState, response: Response<F>) -> Signature<F> {
     Signature {
         function_input: response.function_input,
         function_randomness: response.function_randomness,
@@ -29,7 +33,11 @@ pub fn finalise(state: UserState, response: Response) -> Signature {
 }
 
 /// Checks the final relation directly on the witness.
-pub fn verify(public_key: &PublicKey, message: &MatPolyOverZ, signature: &Signature) -> bool {
+pub fn verify<F: PublicFunction>(
+    public_key: &PublicKey<F>,
+    message: &MatPolyOverZ,
+    signature: &Signature<F>,
+) -> bool {
     let degree = public_key.function.modulus().get_degree();
     // The norm bounds come first because the reused f_a asserts them.
     public_key
@@ -55,18 +63,20 @@ pub fn verify(public_key: &PublicKey, message: &MatPolyOverZ, signature: &Signat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commitment_proof::FiatShamirProvider;
+    use crate::hash_to_ring::HashToRing;
     use crate::issue::{signer_respond, user_check, user_request};
     use crate::keys::{
         SecretKey, key_gen,
         tests::{toy_function, toy_parameters, toy_psf},
     };
-    use qfall_math::integer::PolyOverZ;
+    use qfall_math::integer::{PolyOverZ, Z};
     use qfall_math::traits::{MatrixDimensions, MatrixSetEntry};
 
     const D: i64 = 8;
     const Q_MOD: u64 = 257;
 
-    fn setup() -> (PublicKey, SecretKey, MatPolyOverZ) {
+    fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let function = toy_function(&psf, "signature-test");
         let (public_key, secret_key) = key_gen(function, psf, toy_parameters());
@@ -75,12 +85,14 @@ mod tests {
     }
 
     fn honest_signature(
-        public_key: &PublicKey,
+        public_key: &PublicKey<HashToRing>,
         secret_key: &SecretKey,
         message: &MatPolyOverZ,
-    ) -> Signature {
-        let (request, state) = user_request(public_key, message);
-        let response = signer_respond(public_key, secret_key, &request).expect("signer aborted");
+    ) -> Signature<HashToRing> {
+        let (request, state) =
+            user_request(public_key, message, &FiatShamirProvider).expect("proof");
+        let response = signer_respond(public_key, secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         assert!(user_check(public_key, &state, &response));
         finalise(state, response)
     }

@@ -1,17 +1,19 @@
 //! The one-round issuing protocol.
 //! Report: "Issuing protocol".
 
+use crate::commitment_proof::CommitmentProofProvider;
 use crate::keys::{PublicKey, SecretKey};
-use crate::proof_com::{self, Proof};
+use crate::public_function::PublicFunction;
 use crate::util::norm_eucl_sqrd;
-use qfall_math::integer::{MatPolyOverZ, Z};
+use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::PSF;
 
-/// The request sent by the user.
-pub struct Request {
+/// The request sent by the user. The proof type is fixed by the
+/// commitment-proof provider in use.
+pub struct Request<P> {
     pub commitment: MatPolynomialRingZq,
-    pub proof: Proof,
+    pub proof: P,
 }
 
 /// What the user keeps between the two messages.
@@ -21,16 +23,24 @@ pub struct UserState {
     pub commitment: MatPolynomialRingZq,
 }
 
-/// The response sent by the signer.
-pub struct Response {
-    pub function_input: Z,
-    pub function_randomness: Z,
+/// What the signer sends back.
+pub struct Response<F: PublicFunction> {
+    pub function_input: F::Input,
+    pub function_randomness: F::Randomness,
     pub preimage: MatPolyOverZ,
 }
 
 /// Step 1: the user samples r, commits, proves knowledge of the
 /// opening, and keeps its state.
-pub fn user_request(public_key: &PublicKey, message: &MatPolyOverZ) -> (Request, UserState) {
+pub fn user_request<F, P>(
+    public_key: &PublicKey<F>,
+    message: &MatPolyOverZ,
+    provider: &P,
+) -> Result<(Request<P::Proof>, UserState), P::Error>
+where
+    F: PublicFunction,
+    P: CommitmentProofProvider<F>,
+{
     let degree = public_key.function.modulus().get_degree();
     assert!(
         norm_eucl_sqrd(message, degree) <= public_key.message_bound_sqrd,
@@ -38,35 +48,29 @@ pub fn user_request(public_key: &PublicKey, message: &MatPolyOverZ) -> (Request,
     );
     let randomness = public_key.commitment_key.sample_randomness();
     let commitment = public_key.commitment_key.commit(message, &randomness);
-    let proof = proof_com::prove(
-        &public_key.commitment_key,
-        &public_key.proof_parameters,
-        message,
-        &randomness,
-        &commitment,
-    );
+    let proof = provider.prove(public_key, message, &randomness, &commitment)?;
     let state = UserState {
         message: message.clone(),
         randomness,
         commitment: commitment.clone(),
     };
-    (Request { commitment, proof }, state)
+    Ok((Request { commitment, proof }, state))
 }
 
 /// Step 2: the signer verifies the proof, then samples mu and xi and a
 /// short preimage for the target f(kappa, mu, xi) + c. It returns None
 /// when the proof fails or the preimage misses the norm bound.
-pub fn signer_respond(
-    public_key: &PublicKey,
+pub fn signer_respond<F, P>(
+    public_key: &PublicKey<F>,
     secret_key: &SecretKey,
-    request: &Request,
-) -> Option<Response> {
-    if !proof_com::verify(
-        &public_key.commitment_key,
-        &public_key.proof_parameters,
-        &request.commitment,
-        &request.proof,
-    ) {
+    request: &Request<P::Proof>,
+    provider: &P,
+) -> Option<Response<F>>
+where
+    F: PublicFunction,
+    P: CommitmentProofProvider<F>,
+{
+    if !provider.verify(public_key, &request.commitment, &request.proof) {
         return None;
     }
     let function_input = public_key.function.sample_input();
@@ -90,7 +94,11 @@ pub fn signer_respond(
 }
 
 /// Step 3: the user checks the response.
-pub fn user_check(public_key: &PublicKey, state: &UserState, response: &Response) -> bool {
+pub fn user_check<F: PublicFunction>(
+    public_key: &PublicKey<F>,
+    state: &UserState,
+    response: &Response<F>,
+) -> bool {
     // The norm bound comes first because the reused f_a asserts it.
     public_key
         .function
@@ -110,14 +118,17 @@ pub fn user_check(public_key: &PublicKey, state: &UserState, response: &Response
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commitment_proof::FiatShamirProvider;
+    use crate::hash_to_ring::HashToRing;
     use crate::keys::{
         key_gen,
         tests::{toy_function, toy_parameters, toy_psf},
     };
+    use qfall_math::integer::Z;
 
     const D: i64 = 8;
 
-    fn setup() -> (PublicKey, SecretKey, MatPolyOverZ) {
+    fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
         let psf = toy_psf();
         let function = toy_function(&psf, "issue-test");
         let (public_key, secret_key) = key_gen(function, psf, toy_parameters());
@@ -128,8 +139,10 @@ mod tests {
     #[test]
     fn honest_run_passes_the_user_check() {
         let (public_key, secret_key, message) = setup();
-        let (request, state) = user_request(&public_key, &message);
-        let response = signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         assert!(user_check(&public_key, &state, &response));
     }
 
@@ -138,8 +151,10 @@ mod tests {
     #[test]
     fn finalisation_identity_holds() {
         let (public_key, secret_key, message) = setup();
-        let (request, state) = user_request(&public_key, &message);
-        let response = signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         let left = public_key.psf.f_a(&public_key.a, &response.preimage);
         let right = &public_key.function.eval(
             &public_key.function_key,
@@ -154,9 +169,10 @@ mod tests {
     #[test]
     fn changed_function_input_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();
-        let (request, state) = user_request(&public_key, &message);
-        let mut response =
-            signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let mut response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         response.function_input = &response.function_input + &Z::ONE;
         assert!(!user_check(&public_key, &state, &response));
     }
@@ -164,9 +180,10 @@ mod tests {
     #[test]
     fn changed_function_randomness_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();
-        let (request, state) = user_request(&public_key, &message);
-        let mut response =
-            signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let mut response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         response.function_randomness = &response.function_randomness + &Z::ONE;
         assert!(!user_check(&public_key, &state, &response));
     }
@@ -174,9 +191,10 @@ mod tests {
     #[test]
     fn changed_preimage_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();
-        let (request, state) = user_request(&public_key, &message);
-        let mut response =
-            signer_respond(&public_key, &secret_key, &request).expect("signer aborted");
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let mut response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
         response.preimage = &response.preimage + &response.preimage;
         assert!(!user_check(&public_key, &state, &response));
     }
@@ -184,10 +202,13 @@ mod tests {
     #[test]
     fn an_invalid_proof_makes_the_signer_abort() {
         let (public_key, secret_key, message) = setup();
-        let (mut request, _) = user_request(&public_key, &message);
-        request.proof.message_response = &request.proof.message_response
-            + &request.proof.message_response;
-        assert!(signer_respond(&public_key, &secret_key, &request).is_none());
+        let (mut request, _) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        request.proof.message_response =
+            &request.proof.message_response + &request.proof.message_response;
+        assert!(
+            signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).is_none()
+        );
     }
 
     #[test]
@@ -195,6 +216,6 @@ mod tests {
     fn oversized_message_is_rejected() {
         let (public_key, _, _) = setup();
         let big = MatPolyOverZ::sample_uniform(2, 1, D - 1, 100, 200).unwrap();
-        user_request(&public_key, &big);
+        let _ = user_request(&public_key, &big, &FiatShamirProvider);
     }
 }

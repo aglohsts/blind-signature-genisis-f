@@ -1,6 +1,7 @@
 //! Integration tests: the full protocol through the public interface.
 //! Report: "Evaluation", functional correctness.
 
+use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
@@ -15,7 +16,7 @@ use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 const D: i64 = 8;
 const Q_MOD: u64 = 257;
 
-fn keys(separator: &str) -> (PublicKey, SecretKey) {
+fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
     let psf = PSFGPVRing {
         gp: GadgetParametersRing::init_default(D, Q_MOD),
         s: Q::from(100),
@@ -47,12 +48,14 @@ fn sample_message() -> MatPolyOverZ {
 }
 
 fn honest_run(
-    public_key: &PublicKey,
+    public_key: &PublicKey<HashToRing>,
     secret_key: &SecretKey,
     message: &MatPolyOverZ,
-) -> Signature {
-    let (request, state) = user_request(public_key, message);
-    let response = signer_respond(public_key, secret_key, &request).expect("signer aborted");
+) -> Signature<HashToRing> {
+    let (request, state) =
+        user_request(public_key, message, &FiatShamirProvider).expect("proof");
+    let response = signer_respond(public_key, secret_key, &request, &FiatShamirProvider)
+        .expect("signer aborted");
     assert!(user_check(public_key, &state, &response));
     finalise(state, response)
 }
@@ -107,10 +110,11 @@ fn tampered_signatures_are_rejected() {
 fn an_invalid_proof_makes_the_signer_abort() {
     let (public_key, secret_key) = keys("bad-proof");
     let message = sample_message();
-    let (mut request, _) = user_request(&public_key, &message);
+    let (mut request, _) =
+        user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     request.proof.message_response =
         &request.proof.message_response + &request.proof.message_response;
-    assert!(signer_respond(&public_key, &secret_key, &request).is_none());
+    assert!(signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).is_none());
 }
 
 /// Two runs on the same message use fresh randomness, so the requests
@@ -119,7 +123,7 @@ fn an_invalid_proof_makes_the_signer_abort() {
 fn two_runs_on_one_message_send_different_requests() {
     let (public_key, _) = keys("fresh");
     let message = sample_message();
-    let (first, _) = user_request(&public_key, &message);
-    let (second, _) = user_request(&public_key, &message);
+    let (first, _) = user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+    let (second, _) = user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     assert_ne!(first.commitment, second.commitment);
 }

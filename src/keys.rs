@@ -2,8 +2,8 @@
 //! Report: "Key generation".
 
 use crate::commitment::CommitmentKey;
-use crate::hash_to_ring::HashToRing;
 use crate::proof_com::ProofParameters;
+use crate::public_function::PublicFunction;
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_tools::primitive::psf::{PSF, PSFGPVRing};
@@ -18,11 +18,11 @@ pub struct Parameters {
 }
 
 /// The public key of the scheme.
-pub struct PublicKey {
+pub struct PublicKey<F: PublicFunction> {
     pub a: MatPolynomialRingZq,
     pub commitment_key: CommitmentKey,
-    pub function: HashToRing,
-    pub function_key: Z,
+    pub function: F,
+    pub function_key: F::Key,
     pub psf: PSFGPVRing,
     pub message_bound_sqrd: Z,
     pub proof_parameters: ProofParameters,
@@ -34,11 +34,11 @@ pub struct SecretKey {
 }
 
 /// Runs key generation.
-pub fn key_gen(
-    function: HashToRing,
+pub fn key_gen<F: PublicFunction>(
+    function: F,
     psf: PSFGPVRing,
     parameters: Parameters,
-) -> (PublicKey, SecretKey) {
+) -> (PublicKey<F>, SecretKey) {
     assert_eq!(
         &psf.gp.modulus,
         function.modulus(),
@@ -68,6 +68,7 @@ pub fn key_gen(
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::hash_to_ring::HashToRing;
     use qfall_math::rational::Q;
     use qfall_math::traits::MatrixDimensions;
     use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
@@ -107,7 +108,7 @@ pub mod tests {
         )
     }
 
-    fn setup() -> (PublicKey, SecretKey) {
+    fn setup() -> (PublicKey<HashToRing>, SecretKey) {
         let psf = toy_psf();
         let function = toy_function(&psf, "keys-test");
         key_gen(function, psf, toy_parameters())

@@ -12,3 +12,11 @@ pub fn norm_eucl_sqrd(vector: &MatPolyOverZ, degree: i64) -> Z {
         .norm_eucl_sqrd()
         .unwrap()
 }
+
+/// Largest absolute coefficient of a polynomial vector.
+pub fn norm_inf(vector: &MatPolyOverZ, degree: i64) -> Z {
+    vector
+        .clone()
+        .into_coefficient_embedding(degree)
+        .norm_l_infty_infty()
+}

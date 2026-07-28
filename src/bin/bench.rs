@@ -2,10 +2,12 @@
 //! with --release. Report: "Evaluation".
 
 use blind_sig::binary_encoding::BinaryEncoding;
+use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
 use blind_sig::proof_com::ProofParameters;
+use blind_sig::public_function::PublicFunction;
 use blind_sig::signature::{finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::rational::Q;
@@ -43,7 +45,7 @@ fn toy_parameters() -> Parameters {
     }
 }
 
-fn fresh_keys() -> (PublicKey, SecretKey) {
+fn fresh_keys() -> (PublicKey<HashToRing>, SecretKey) {
     let psf = toy_psf();
     let function = HashToRing::new(
         1,
@@ -93,18 +95,24 @@ fn main() {
     let hash_eval_ms = time_ms(1000, || public_key.function.eval(&key, &input, &randomness));
 
     let binary_function = BinaryEncoding::new(1, 10, public_key.function.modulus().clone());
-    let binary_eval_ms = time_ms(1000, || binary_function.eval(&input));
+    let binary_eval_ms = time_ms(1000, || binary_function.eval(&(), &input, &()));
 
-    let request_ms = time_ms(REPS, || user_request(&public_key, &message));
-    let (request, state) = user_request(&public_key, &message);
-    let respond_ms = time_ms(REPS, || {
-        signer_respond(&public_key, &secret_key, &request).unwrap()
+    let request_ms = time_ms(REPS, || {
+        user_request(&public_key, &message, &FiatShamirProvider).unwrap()
     });
-    let response = signer_respond(&public_key, &secret_key, &request).unwrap();
+    let (request, state) =
+        user_request(&public_key, &message, &FiatShamirProvider).unwrap();
+    let respond_ms = time_ms(REPS, || {
+        signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).unwrap()
+    });
+    let response =
+        signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).unwrap();
     let check_ms = time_ms(REPS, || user_check(&public_key, &state, &response));
 
-    let (second_request, second_state) = user_request(&public_key, &message);
-    let second_response = signer_respond(&public_key, &secret_key, &second_request).unwrap();
+    let (second_request, second_state) =
+        user_request(&public_key, &message, &FiatShamirProvider).unwrap();
+    let second_response =
+        signer_respond(&public_key, &secret_key, &second_request, &FiatShamirProvider).unwrap();
     assert!(user_check(&public_key, &second_state, &second_response));
     let signature = finalise(second_state, second_response);
     assert!(verify(&public_key, &message, &signature));
