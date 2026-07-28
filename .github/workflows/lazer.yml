@@ -1,0 +1,130 @@
+name: tests
+
+# The LaZer revision pinned in lazer/LAZER_REVISION supports linux/amd64.
+# Emulating that architecture on an Apple Silicon host is unreliable, so the
+# LaZer-backed proof layer is verified on a native x86-64 runner instead. The
+# steps mirror lazer/Dockerfile.
+
+on:
+  push:
+    branches: [dev, dev_lazer]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native:
+    name: qFALL-only test suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the qFALL build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++ libgmp-dev libmpfr-dev
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: native-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: native-cargo-
+
+      - run: rustup update stable && rustup default stable
+      - run: cargo test --all-targets
+
+  lazer:
+    name: LaZer-backed proof layer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            cmake g++-14 gcc-14 git libgmp-dev libmpfr-dev make patch unzip
+
+      - name: Cache the LaZer build
+        id: lazer-cache
+        uses: actions/cache@v4
+        with:
+          path: .lazer
+          key: lazer-${{ hashFiles('lazer/LAZER_REVISION', 'lazer/patches/*.patch') }}
+
+      - name: Check out the pinned LaZer revision
+        if: steps.lazer-cache.outputs.cache-hit != 'true'
+        run: |
+          revision="$(cat lazer/LAZER_REVISION)"
+          git init "$RUNNER_TEMP/lazer"
+          git -C "$RUNNER_TEMP/lazer" remote add origin \
+            https://github.com/lazer-crypto/lazer.git
+          git -C "$RUNNER_TEMP/lazer" fetch --depth 1 origin "$revision"
+          git -C "$RUNNER_TEMP/lazer" checkout --detach FETCH_HEAD
+          git -C "$RUNNER_TEMP/lazer" submodule update --init --recursive
+
+      # The pinned revision passes reserved slots to the t-box instead of the
+      # caller-supplied equations, and its sparse encoders leave the first
+      # output byte partly uninitialised.
+      - name: Apply the upstream patches
+        if: steps.lazer-cache.outputs.cache-hit != 'true'
+        run: |
+          for patch in lazer/patches/*.patch; do
+            patch --directory="$RUNNER_TEMP/lazer" --strip=1 --input="$PWD/$patch"
+          done
+
+      # Built ahead of `make lib-static` so the vendored HEXL configures under
+      # CMake 4, which no longer accepts its `cmake_minimum_required`. Touching
+      # the directory afterwards keeps make from repeating the step.
+      - name: Build the vendored HEXL
+        if: steps.lazer-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}/lazer/third_party
+        run: |
+          unzip -q -o hexl-development.zip
+          cmake -S hexl-development -B hexl-development/build \
+            -DHEXL_BENCHMARK=OFF -DHEXL_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build hexl-development/build -j"$(nproc)"
+          touch hexl-development
+
+      - name: Build the LaZer static libraries
+        if: steps.lazer-cache.outputs.cache-hit != 'true'
+        run: |
+          make -C "$RUNNER_TEMP/lazer" CC=gcc-14 CXX=g++-14 lib-static
+          mkdir -p .lazer/include/src .lazer/lib .lazer/metadata
+          cp "$RUNNER_TEMP/lazer/lazer.h" .lazer/include/lazer.h
+          cp "$RUNNER_TEMP/lazer/src/moduli.h" .lazer/include/src/moduli.h
+          cp "$RUNNER_TEMP/lazer/liblazer.a" .lazer/lib/liblazer.a
+          cp "$RUNNER_TEMP/lazer/third_party/hexl-development/build/hexl/lib/libhexl.a" \
+            .lazer/lib/libhexl.a
+          cp lazer/LAZER_REVISION .lazer/metadata/LAZER_REVISION
+
+      - name: Report the pinned revision
+        run: cat .lazer/metadata/LAZER_REVISION
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: lazer-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: lazer-cargo-
+
+      - run: rustup update stable && rustup default stable
+
+      # Single-threaded: LaZer keeps process-wide state behind its one-time
+      # initialiser.
+      - name: Run the LaZer-backed tests
+        env:
+          LAZER_INCLUDE_DIR: .lazer/include
+          LAZER_LIB_DIR: .lazer/lib
+          LAZER_HEXL_LIB_DIR: .lazer/lib
+        run: cargo test --features lazer-ffi -- --test-threads=1
