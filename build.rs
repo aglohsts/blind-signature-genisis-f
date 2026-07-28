@@ -36,6 +36,32 @@ fn required_archive(dir: &PathBuf, file: &str, variable: &str) {
     );
 }
 
+/// Locates the GMP and MPFR that qFALL builds from source through
+/// gmp-mpfr-sys. LaZer links against the same two libraries, and a
+/// shared machine often has neither installed, so the linker is
+/// pointed at that copy when one exists. `OUT_DIR` is
+/// `target/<profile>/build/<crate>-<hash>/out`, so its grandparent
+/// holds every build directory of this profile.
+fn cargo_built_gmp_dir() -> Option<PathBuf> {
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR")?);
+    let build_root = out_dir.parent()?.parent()?;
+    for entry in std::fs::read_dir(build_root).ok()? {
+        let path = entry.ok()?.path();
+        if !path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with("gmp-mpfr-sys-"))
+        {
+            continue;
+        }
+        let lib = path.join("out").join("lib");
+        if lib.join("libmpfr.a").is_file() && lib.join("libgmp.a").is_file() {
+            return Some(lib);
+        }
+    }
+    None
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=lazer/shim.c");
     println!("cargo:rerun-if-changed=lazer/shim_sig.c");
@@ -78,6 +104,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", lazer_dir.display());
     println!("cargo:rustc-link-search=native={}", hexl_dir.display());
+    if let Some(gmp_dir) = cargo_built_gmp_dir() {
+        println!("cargo:rustc-link-search=native={}", gmp_dir.display());
+    }
     println!("cargo:rustc-link-lib=static=lazer");
     println!("cargo:rustc-link-lib=static=hexl");
     println!("cargo:rustc-link-lib=mpfr");
