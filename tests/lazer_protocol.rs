@@ -24,6 +24,7 @@ use qfall_math::rational::Q;
 use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
 use qfall_tools::primitive::psf::PSFGPVRing;
 use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
+use std::time::Instant;
 
 const D: i64 = 64;
 const Q_MOD: u64 = 281_474_976_711_349;
@@ -70,6 +71,11 @@ fn profile_message(first: i64, second: i64) -> MatPolyOverZ {
     message
 }
 
+/// Writes one stage timing to stderr, where `--nocapture` shows it.
+fn report(stage: &str, started: Instant) {
+    eprintln!("    {stage:<26}: {:>8.2} s", started.elapsed().as_secs_f64());
+}
+
 #[test]
 fn the_profile_sizes_are_the_generated_ones() {
     assert_eq!(22_682, lazer_ffi::proof_len());
@@ -82,17 +88,25 @@ fn the_profile_sizes_are_the_generated_ones() {
 /// The stages are separated by comments rather than by test functions,
 /// because a profile key costs more to generate than every check here
 /// costs to run.
+///
+/// Each stage reports its own elapsed time. The times are hidden unless
+/// the suite runs with `--nocapture`, and they are the measurements the
+/// evaluation reports, so they should be read from a release build.
 #[test]
 fn the_lazer_proof_layer_carries_the_protocol() {
+    let started = Instant::now();
     let (public_key, secret_key) = profile_keys();
+    report("key generation", started);
     let commitment_provider = LazerProvider::new(COM_SEED);
     let signature_provider = LazerSignatureProvider::new(SIG_SEED);
     let message = profile_message(1, 1);
 
     // Pi_com. The proof travels with the request, and it binds both the
     // commitment and the public-parameter seed.
+    let started = Instant::now();
     let (request, state) =
         user_request(&public_key, &message, &commitment_provider).expect("the LaZer prover failed");
+    report("user request, with pi_com", started);
     assert_eq!(lazer_ffi::proof_len(), request.proof.as_bytes().len());
     assert!(commitment_provider.verify(&public_key, &request.commitment, &request.proof));
 
@@ -101,23 +115,33 @@ fn the_lazer_proof_layer_carries_the_protocol() {
     let other_seed = LazerProvider::new([9; 32]);
     assert!(!other_seed.verify(&public_key, &request.commitment, &request.proof));
 
+    let started = Instant::now();
     let response = signer_respond(&public_key, &secret_key, &request, &commitment_provider)
         .expect("signer aborted");
+    report("signer response", started);
+
+    let started = Instant::now();
     assert!(user_check(&public_key, &state, &response));
+    report("user check", started);
 
     // Pi_sig. The witness of the accepted run satisfies R_sig, and the
     // proof is checked against the public message alone.
     let mut witness = signature_witness(&public_key, state, response);
     assert!(relation_holds(&public_key, &message, &witness));
 
+    let started = Instant::now();
     let first = signature_provider
         .prove(&public_key, &message, &witness)
         .expect("the LaZer final-signature prover failed");
+    report("pi_sig, prove", started);
     assert_eq!(
         lazer_ffi::final_signature_proof_len(),
         first.as_bytes().len()
     );
+
+    let started = Instant::now();
     assert!(signature_provider.verify(&public_key, &message, &first));
+    report("pi_sig, verify", started);
 
     // The statement binds the message, so the proof does not carry over.
     assert!(!signature_provider.verify(&public_key, &profile_message(1, -1), &first));
