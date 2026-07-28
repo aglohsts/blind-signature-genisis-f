@@ -33,14 +33,24 @@ cp -r /mnt/c/Users/<you>/Downloads/blind-sig ~/blind-sig
 cd ~/blind-sig
 ```
 
-Install the toolchain and the two libraries qFALL needs:
+Install the toolchain:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y build-essential curl git cmake unzip patch libgmp-dev libmpfr-dev
+sudo apt-get install -y build-essential curl git cmake unzip patch
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . "$HOME/.cargo/env"
 ```
+
+Install Rust with the `rustup` script above rather than from the
+distribution: this crate uses edition 2024 and needs Rust 1.85 or
+newer, while `apt install cargo` on Ubuntu 24.04 gives 1.75.
+
+GMP and MPFR are not in the package list on purpose. qFALL depends on
+`gmp-mpfr-sys`, which builds both from source during the first Cargo
+build, so no developer package and no root access is needed. Step 2
+reuses that copy. Installing `libgmp-dev` and `libmpfr-dev` also works
+if you have the rights to.
 
 Now go to *Step 1* below.
 
@@ -74,6 +84,10 @@ The demo and the benchmark use toy parameters (`d = 8`, `q = 257`) and are not
 cryptographically sized.
 
 ## Step 2: the LaZer-backed proof layer (x86-64 only)
+
+Run *Step 1* first. Besides checking that the scheme works, it builds
+the GMP and MPFR that LaZer needs to compile, and the script below
+picks that copy up.
 
 The two NIZK proof systems of the construction, `Pi_com` and `Pi_sig`, are
 also implemented on top of the LaZer library. LaZer is pinned to the revision

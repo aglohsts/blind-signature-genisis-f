@@ -29,6 +29,35 @@ for tool in git make cmake unzip patch; do
     }
 done
 
+# LaZer needs the GMP and MPFR headers. A machine without the developer
+# packages still has them, because the qFALL dependency gmp-mpfr-sys
+# builds both from source; reuse that copy rather than asking for root.
+if ! printf '#include <mpfr.h>\nint main(void){return 0;}\n' \
+    | "${CC:-cc}" -x c -fsyntax-only - >/dev/null 2>&1; then
+    header="$(find "$project/target" -path '*gmp-mpfr-sys*/out/include/mpfr.h' \
+        2>/dev/null | head -1)"
+    if [ -z "$header" ]; then
+        echo "error: mpfr.h was not found." >&2
+        echo "       Run 'cargo test' before this script. qFALL builds GMP" >&2
+        echo "       and MPFR from source, and this script then reuses that" >&2
+        echo "       copy, so no developer package and no root access is" >&2
+        echo "       needed. Installing libgmp-dev and libmpfr-dev also" >&2
+        echo "       works if you can." >&2
+        command -v cargo >/dev/null 2>&1 || {
+            echo "       Cargo is not installed either. Install Rust with" >&2
+            echo "       the rustup script in README.md; the cargo packaged" >&2
+            echo "       by Ubuntu is too old for this crate." >&2
+        }
+        exit 1
+    fi
+    include_dir="$(dirname "$header")"
+    lib_dir="$(dirname "$include_dir")/lib"
+    echo "==> using the GMP and MPFR that cargo built, in $include_dir"
+    CPATH="${CPATH:+$CPATH:}$include_dir"
+    LIBRARY_PATH="${LIBRARY_PATH:+$LIBRARY_PATH:}$lib_dir"
+    export CPATH LIBRARY_PATH
+fi
+
 if [ ! -d "$workdir/.git" ]; then
     echo "==> fetching LaZer $revision"
     mkdir -p "$workdir"
