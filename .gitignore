@@ -4,6 +4,10 @@
 *.profraw
 /coverage/
 
+# Exported LaZer headers, static libraries, and source tree
+/.lazer/
+/.lazer-src/
+
 # Machine-specific Cargo configuration
 /.cargo/config.toml
 

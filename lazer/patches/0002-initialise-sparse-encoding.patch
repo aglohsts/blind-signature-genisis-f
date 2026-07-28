@@ -1,0 +1,28 @@
+diff --git a/src/coder.c b/src/coder.c
+index eff3448..31cd05a 100644
+--- a/src/coder.c
++++ b/src/coder.c
+@@ -662,6 +662,9 @@ coder_enc_urandom5 (coder_state_t state, spolymat_t v, const int_t m,
+   ASSERT_ERR (v->nelems <= UINT16_MAX);
+-
++
+   _byte = state->out;
+   _bit = state->bit_off;
+-
++
++  /* zero unset bits in first byte */
++  _byte[0] &= ~((uint8_t)(~0) << _bit);
++
+   buf[0] = htole16 (v->nelems);
+@@ -722,6 +725,9 @@ coder_enc_urandom6 (coder_state_t state, spolyvec_t v, const int_t m,
+   ASSERT_ERR (v->nelems <= UINT16_MAX);
+-
++
+   _byte = state->out;
+   _bit = state->bit_off;
+-
++
++  /* zero unset bits in first byte */
++  _byte[0] &= ~((uint8_t)(~0) << _bit);
++
+   buf[0] = htole16 (v->nelems);

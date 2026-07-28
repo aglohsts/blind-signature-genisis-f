@@ -3,9 +3,14 @@ name = "blind-sig"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+lazer-ffi = []
+
 [dependencies]
 qfall-math = "0.1.1"
 qfall-schemes = "0.1.0"
 qfall-tools = "0.1.0"
 
-
+[build-dependencies]
+cc = "1.2.56"

@@ -8,6 +8,8 @@ pub mod commitment_proof;
 pub mod hash_to_ring;
 pub mod issue;
 pub mod keys;
+#[cfg(feature = "lazer-ffi")]
+pub mod lazer_ffi;
 pub mod module_lwe;
 pub mod proof_com;
 pub mod public_function;
