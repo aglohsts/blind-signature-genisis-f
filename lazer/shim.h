@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 #define BS_LAZER_D64_DEGREE 64u
-#define BS_LAZER_D64_MODULUS 288230376151711813LL
+#define BS_LAZER_D64_MODULUS 288230376151713349LL
 #define BS_LAZER_D64_COMMITMENT_COLUMNS 4u
 #define BS_LAZER_D64_PADDED_COLUMNS 10u
 #define BS_LAZER_D64_MATRIX_COEFFS                                           \
@@ -54,6 +54,13 @@ enum bs_lazer_status
 
 /* Initialises the pinned LaZer library once per process. */
 int bs_lazer_init (void);
+
+/* The modulus each generated profile actually uses. The advanced
+ * generator is given a bit length and picks its own prime, so these are
+ * read back rather than assumed; a mismatch with the constant the shims
+ * reduce by would make the prover and the verifier disagree. */
+uint64_t bs_lazer_d64_modulus (void);
+uint64_t bs_lazer_sig_d64_modulus (void);
 
 /* Fixed transport length (LaZer's maximum encoded length) for this profile. */
 size_t bs_lazer_d64_proof_len (void);

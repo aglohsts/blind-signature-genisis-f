@@ -9,7 +9,7 @@
 
 /* Report: "The Final-Signature Proof". */
 
-#define BS_SIG_D64_Q 288230376151711813ULL
+#define BS_SIG_D64_Q 288230376151713349ULL
 
 #define BS_SIG_D64_PREIMAGE_COEFFS                                          \
   ((size_t)BS_LAZER_SIG_D64_PREIMAGE_COLUMNS * BS_LAZER_SIG_D64_DEGREE)

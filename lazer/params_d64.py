@@ -7,7 +7,7 @@ vname = "blind_sig_com_d64"
 deg = 64
 # Matches the final-signature statement ring, so one public key serves
 # both proofs.
-mod = 288_230_376_151_711_813
+mod = 288_230_376_151_713_349
 dim = (1, 10)
 
 # The witness layout and zero padding are defined in the report.

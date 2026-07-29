@@ -15,7 +15,7 @@ use std::os::raw::c_char;
 pub const DEGREE: usize = 64;
 
 /// The modulus `q` shared by both profiles.
-pub const MODULUS: u64 = 288_230_376_151_711_813;
+pub const MODULUS: u64 = 288_230_376_151_713_349;
 
 /// The message and randomness bounds fixed by the generated profiles.
 pub const PROFILE_MESSAGE_BOUND_SQ: i64 = 16;
@@ -52,6 +52,8 @@ const INTERNAL_ERROR: i32 = -3;
 
 unsafe extern "C" {
     fn bs_lazer_init() -> i32;
+    fn bs_lazer_d64_modulus() -> u64;
+    fn bs_lazer_sig_d64_modulus() -> u64;
     fn bs_lazer_d64_proof_len() -> usize;
     fn bs_lazer_d64_prove(
         a: *const i64,
@@ -183,6 +185,20 @@ pub fn version() -> Result<&'static str, Error> {
             .to_str()
             .map_err(|_| Error::InvalidVersionString)
     }
+}
+
+/// The modulus the commitment profile was generated with.
+pub fn commitment_modulus() -> u64 {
+    // SAFETY: Reads a constant from the generated profile.
+    unsafe { bs_lazer_d64_modulus() }
+}
+
+/// The modulus the final-signature profile was generated with. Its
+/// generator is given a bit length rather than a modulus and chooses
+/// its own prime, so this is not the same thing as asking for one.
+pub fn final_signature_modulus() -> u64 {
+    // SAFETY: Reads a constant from the generated profile.
+    unsafe { bs_lazer_sig_d64_modulus() }
 }
 
 /// Returns the fixed transport length of the commitment profile.
@@ -429,6 +445,25 @@ mod tests {
         assert_eq!(proof_len(), 24_696);
         assert_eq!(final_signature_proof_len(), 27_008);
         assert_eq!(final_signature_proof_capacity(), 54_016);
+    }
+
+    /// Both profiles have to be generated over the same ring, and the
+    /// shims reduce their inputs by `MODULUS`, so all three must agree.
+    /// The advanced generator picks its own prime from a bit length,
+    /// and which prime it picks depends on the other parameters, so
+    /// this cannot be established by reading the source profiles.
+    #[test]
+    fn both_profiles_use_the_declared_modulus() {
+        assert_eq!(
+            MODULUS,
+            commitment_modulus(),
+            "the commitment profile was generated over a different ring",
+        );
+        assert_eq!(
+            MODULUS,
+            final_signature_modulus(),
+            "the final-signature profile was generated over a different ring",
+        );
     }
 
     #[test]

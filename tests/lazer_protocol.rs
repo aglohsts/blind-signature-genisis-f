@@ -26,7 +26,7 @@ use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
 use std::time::Instant;
 
 const D: i64 = 64;
-const Q_MOD: u64 = 288_230_376_151_711_813;
+const Q_MOD: u64 = 288_230_376_151_713_349;
 const COM_SEED: [u8; 32] = [7; 32];
 const SIG_SEED: [u8; 32] = [11; 32];
 

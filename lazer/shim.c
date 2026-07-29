@@ -28,6 +28,18 @@ bs_lazer_init (void)
              : BS_LAZER_INTERNAL_ERROR;
 }
 
+uint64_t
+bs_lazer_d64_modulus (void)
+{
+  return (uint64_t)blind_sig_com_d64_p_limbs[0];
+}
+
+uint64_t
+bs_lazer_sig_d64_modulus (void)
+{
+  return (uint64_t)blind_sig_sig_d64_q_limbs[0];
+}
+
 size_t
 bs_lazer_d64_proof_len (void)
 {

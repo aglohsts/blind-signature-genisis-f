@@ -32,7 +32,7 @@ from math import sqrt
 name = "blind_sig_sig_d64"
 
 d = 64
-log2q = 58
+log2q = 58  # the generator picks the prime; read it back from the header
 
 preimage_length = 10
 function_randomness_length = 2
