@@ -24,7 +24,7 @@ pub const PROFILE_FUNCTION_RANDOMNESS_BOUND_SQ: i64 = 2_000;
 /// The squared preimage bound the final-signature profile proves. It
 /// follows from the Gaussian width and the trapdoor dimensions, so a
 /// key whose sampler is configured differently cannot use the profile.
-pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 6_553_600_000;
+pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 6_400_000;
 pub const PROFILE_WITNESS_INF: i64 = 20;
 
 // The commitment profile: [B_1 | B_2] * (m; r) - c = 0.
@@ -427,8 +427,8 @@ mod tests {
     #[test]
     fn reports_expected_profile_sizes() {
         assert_eq!(proof_len(), 24_696);
-        assert_eq!(final_signature_proof_len(), 27_008);
-        assert_eq!(final_signature_proof_capacity(), 54_016);
+        assert_eq!(final_signature_proof_len(), 25_296);
+        assert_eq!(final_signature_proof_capacity(), 50_592);
     }
 
     #[test]
