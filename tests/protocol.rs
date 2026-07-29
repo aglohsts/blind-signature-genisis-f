@@ -5,29 +5,28 @@ use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
+use blind_sig::preimage::{Sampler, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{Signature, finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::rational::Q;
 use qfall_math::traits::{MatrixDimensions, MatrixSetEntry};
-use qfall_tools::primitive::psf::PSFGPVRing;
-use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 
 const D: i64 = 8;
 const Q_MOD: u64 = 257;
 
 fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
-    let psf = PSFGPVRing {
-        gp: GadgetParametersRing::init_default(D, Q_MOD),
-        s: Q::from(100),
-        s_td: Q::from(1.005_f64),
-    };
+    let sampler = Sampler::new(
+        gadget_parameters(D, Q_MOD, 1),
+        Q::from(100),
+        Q::from(1.005_f64),
+    );
     let function = HashToRing::new(
         1,
         1u64 << 10,
         1u64 << 20,
         1u64 << 10,
-        psf.gp.modulus.clone(),
+        sampler.modulus().clone(),
         separator,
     );
     let parameters = Parameters {
@@ -40,7 +39,7 @@ fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
             mask_inf: 8000,
         },
     };
-    key_gen(function, psf, parameters)
+    key_gen(function, sampler, parameters)
 }
 
 fn sample_message() -> MatPolyOverZ {

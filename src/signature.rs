@@ -15,7 +15,6 @@ use crate::public_function::PublicFunction;
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, MatZ, PolyOverZ, Z};
 use qfall_math::traits::{MatrixDimensions, MatrixGetEntry};
-use qfall_tools::primitive::psf::PSF;
 
 #[cfg(feature = "lazer-ffi")]
 pub mod lazer_statement;
@@ -57,11 +56,11 @@ pub fn verify<F: PublicFunction>(
         && public_key
             .function
             .contains_randomness(&signature.function_randomness)
-        && public_key.psf.check_domain(&signature.preimage)
+        && public_key.sampler.check_domain(&signature.preimage)
         && norm_eucl_sqrd(message, degree) <= public_key.message_bound_sqrd
         && norm_eucl_sqrd(&signature.randomness, degree)
             <= public_key.commitment_key.randomness_bound_sqrd()
-        && public_key.psf.f_a(&public_key.a, &signature.preimage)
+        && public_key.sampler.f_a(&public_key.a, &signature.preimage)
             == &public_key.function.eval(
                 &public_key.function_key,
                 &signature.function_input,
@@ -190,13 +189,13 @@ pub fn relation_holds(
         ));
 
     norm_eucl_sqrd(&witness.preimage, degree) > Z::ZERO
-        && public_key.psf.check_domain(&witness.preimage)
+        && public_key.sampler.check_domain(&witness.preimage)
         && norm_eucl_sqrd(message, degree) <= public_key.message_bound_sqrd
         && norm_eucl_sqrd(&witness.randomness, degree)
             <= public_key.commitment_key.randomness_bound_sqrd()
         && norm_eucl_sqrd(&witness.function_randomness, degree)
             <= function.randomness_bound_sqrd()
-        && public_key.psf.f_a(&public_key.a, &witness.preimage)
+        && public_key.sampler.f_a(&public_key.a, &witness.preimage)
             == &(&masking + &encoding_image)
                 + &public_key
                     .commitment_key
@@ -233,7 +232,7 @@ mod tests {
     use crate::issue::{signer_respond, user_check, user_request};
     use crate::keys::{
         SecretKey, key_gen,
-        tests::{toy_function, toy_parameters, toy_psf},
+        tests::{toy_function, toy_parameters, toy_sampler},
     };
     use qfall_math::traits::MatrixSetEntry;
 
@@ -241,9 +240,9 @@ mod tests {
     const Q_MOD: u64 = 257;
 
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
-        let psf = toy_psf();
-        let function = toy_function(&psf, "signature-test");
-        let (public_key, secret_key) = key_gen(function, psf, toy_parameters());
+        let sampler = toy_sampler();
+        let function = toy_function(&sampler, "signature-test");
+        let (public_key, secret_key) = key_gen(function, sampler, toy_parameters());
         let message = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (public_key, secret_key, message)
     }

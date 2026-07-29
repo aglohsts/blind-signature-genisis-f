@@ -272,8 +272,9 @@ fn validate_bounds(public_key: &PublicKey<ModuleLweEncoding>) -> Result<(), Erro
             > Z::from(lazer_ffi::PROFILE_RANDOMNESS_BOUND_SQ)
         || public_key.function.randomness_bound_sqrd()
             > Z::from(lazer_ffi::PROFILE_FUNCTION_RANDOMNESS_BOUND_SQ)
-        || public_key.psf.s != Q::from(100)
-        || &public_key.psf.gp.modulus != public_key.function.modulus()
+        || public_key.sampler.preimage_bound_sqrd()
+            > Q::from(lazer_ffi::PROFILE_PREIMAGE_BOUND_SQ)
+        || public_key.sampler.modulus() != public_key.function.modulus()
     {
         return Err(Error::ProfileMismatch(
             "the final-signature bounds must match the generated profile",

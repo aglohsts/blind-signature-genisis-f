@@ -14,6 +14,7 @@ use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
 use blind_sig::lazer_ffi;
 use blind_sig::module_lwe::ModuleLweEncoding;
+use blind_sig::preimage::{Sampler, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{
     FinalSignatureProofProvider, LazerSignatureProvider, finalise_with_provider, relation_holds,
@@ -22,8 +23,6 @@ use blind_sig::signature::{
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::rational::Q;
 use qfall_math::traits::{MatrixSetEntry, SetCoefficient};
-use qfall_tools::primitive::psf::PSFGPVRing;
-use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use std::time::Instant;
 
 const D: i64 = 64;
@@ -32,17 +31,17 @@ const COM_SEED: [u8; 32] = [7; 32];
 const SIG_SEED: [u8; 32] = [11; 32];
 
 fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
-    let psf = PSFGPVRing {
-        gp: GadgetParametersRing::init_default(D, Q_MOD),
-        s: Q::from(100),
-        s_td: Q::from(1.005_f64),
-    };
+    let sampler = Sampler::new(
+        gadget_parameters(D, Q_MOD, 1),
+        Q::from(100),
+        Q::from(1.005_f64),
+    );
     let function = ModuleLweEncoding::new(
         1,
         lazer_ffi::TAG_COEFFICIENTS as i64,
         lazer_ffi::FUNCTION_RANDOMNESS_COLUMNS as i64,
         3,
-        psf.gp.modulus.clone(),
+        sampler.modulus().clone(),
     );
     let parameters = Parameters {
         ell_m: 2,
@@ -54,7 +53,7 @@ fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
             mask_inf: 8000,
         },
     };
-    key_gen(function, psf, parameters)
+    key_gen(function, sampler, parameters)
 }
 
 /// A sparse message that stays inside the profile bound
@@ -186,12 +185,12 @@ fn the_lazer_proof_layer_carries_the_protocol() {
 /// key generation.
 #[test]
 fn a_public_key_outside_the_profile_is_rejected() {
-    let psf = PSFGPVRing {
-        gp: GadgetParametersRing::init_default(8, 257),
-        s: Q::from(100),
-        s_td: Q::from(1.005_f64),
-    };
-    let function = ModuleLweEncoding::new(1, 10, 2, 3, psf.gp.modulus.clone());
+    let sampler = Sampler::new(
+        gadget_parameters(8, 257, 1),
+        Q::from(100),
+        Q::from(1.005_f64),
+    );
+    let function = ModuleLweEncoding::new(1, 10, 2, 3, sampler.modulus().clone());
     let parameters = Parameters {
         ell_m: 2,
         ell_r: 2,
@@ -202,7 +201,7 @@ fn a_public_key_outside_the_profile_is_rejected() {
             mask_inf: 8000,
         },
     };
-    let (public_key, _) = key_gen(function, psf, parameters);
+    let (public_key, _) = key_gen(function, sampler, parameters);
     let message = MatPolyOverZ::sample_uniform(2, 1, 7, 0, 2).unwrap();
     let randomness = public_key.commitment_key.sample_randomness();
     let commitment = public_key.commitment_key.commit(&message, &randomness);

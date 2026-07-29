@@ -7,7 +7,6 @@ use crate::public_function::PublicFunction;
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
-use qfall_tools::primitive::psf::PSF;
 
 /// The request sent by the user. The proof type is fixed by the
 /// commitment-proof provider in use.
@@ -80,10 +79,8 @@ where
         &function_input,
         &function_randomness,
     ) + &request.commitment;
-    let preimage = public_key
-        .psf
-        .samp_p(&public_key.a, &secret_key.trapdoor, &target);
-    if !public_key.psf.check_domain(&preimage) {
+    let preimage = public_key.sampler.samp_p(&secret_key.trapdoor, &target);
+    if !public_key.sampler.check_domain(&preimage) {
         return None;
     }
     Some(Response {
@@ -106,8 +103,8 @@ pub fn user_check<F: PublicFunction>(
         && public_key
             .function
             .contains_randomness(&response.function_randomness)
-        && public_key.psf.check_domain(&response.preimage)
-        && public_key.psf.f_a(&public_key.a, &response.preimage)
+        && public_key.sampler.check_domain(&response.preimage)
+        && public_key.sampler.f_a(&public_key.a, &response.preimage)
             == &public_key.function.eval(
                 &public_key.function_key,
                 &response.function_input,
@@ -122,16 +119,16 @@ mod tests {
     use crate::hash_to_ring::HashToRing;
     use crate::keys::{
         key_gen,
-        tests::{toy_function, toy_parameters, toy_psf},
+        tests::{toy_function, toy_parameters, toy_sampler},
     };
     use qfall_math::integer::Z;
 
     const D: i64 = 8;
 
     fn setup() -> (PublicKey<HashToRing>, SecretKey, MatPolyOverZ) {
-        let psf = toy_psf();
-        let function = toy_function(&psf, "issue-test");
-        let (public_key, secret_key) = key_gen(function, psf, toy_parameters());
+        let sampler = toy_sampler();
+        let function = toy_function(&sampler, "issue-test");
+        let (public_key, secret_key) = key_gen(function, sampler, toy_parameters());
         let message = MatPolyOverZ::sample_uniform(2, 1, D - 1, 0, 2).unwrap();
         (public_key, secret_key, message)
     }
@@ -155,7 +152,7 @@ mod tests {
             user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
         let response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
             .expect("signer aborted");
-        let left = public_key.psf.f_a(&public_key.a, &response.preimage);
+        let left = public_key.sampler.f_a(&public_key.a, &response.preimage);
         let right = &public_key.function.eval(
             &public_key.function_key,
             &response.function_input,

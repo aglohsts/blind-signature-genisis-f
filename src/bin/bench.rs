@@ -6,14 +6,13 @@ use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
+use blind_sig::preimage::{Sampler, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::public_function::PublicFunction;
 use blind_sig::signature::{finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::rational::Q;
 use qfall_math::traits::{IntoCoefficientEmbedding, MatrixDimensions};
-use qfall_tools::primitive::psf::PSFGPVRing;
-use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -24,12 +23,12 @@ const ELL_R: i64 = 2;
 const PSI: i64 = 3;
 const REPS: u32 = 20;
 
-fn toy_psf() -> PSFGPVRing {
-    PSFGPVRing {
-        gp: GadgetParametersRing::init_default(D, Q_MOD),
-        s: Q::from(100),
-        s_td: Q::from(1.005_f64),
-    }
+fn toy_sampler() -> Sampler {
+    Sampler::new(
+        gadget_parameters(D, Q_MOD, 1),
+        Q::from(100),
+        Q::from(1.005_f64),
+    )
 }
 
 fn toy_parameters() -> Parameters {
@@ -46,16 +45,16 @@ fn toy_parameters() -> Parameters {
 }
 
 fn fresh_keys() -> (PublicKey<HashToRing>, SecretKey) {
-    let psf = toy_psf();
+    let sampler = toy_sampler();
     let function = HashToRing::new(
         1,
         1u64 << 10,
         1u64 << 20,
         1u64 << 10,
-        psf.gp.modulus.clone(),
+        sampler.modulus().clone(),
         "bench",
     );
-    key_gen(function, psf, toy_parameters())
+    key_gen(function, sampler, toy_parameters())
 }
 
 fn time_ms<T>(reps: u32, mut action: impl FnMut() -> T) -> f64 {

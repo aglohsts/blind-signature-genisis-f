@@ -21,6 +21,10 @@ pub const MODULUS: u64 = 281_474_976_711_349;
 pub const PROFILE_MESSAGE_BOUND_SQ: i64 = 16;
 pub const PROFILE_RANDOMNESS_BOUND_SQ: i64 = 2_000;
 pub const PROFILE_FUNCTION_RANDOMNESS_BOUND_SQ: i64 = 2_000;
+/// The squared preimage bound the final-signature profile proves. It
+/// follows from the Gaussian width and the trapdoor dimensions, so a
+/// key whose sampler is configured differently cannot use the profile.
+pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 32_640_000;
 pub const PROFILE_WITNESS_INF: i64 = 20;
 
 // The commitment profile: [B_1 | B_2] * (m; r) - c = 0.
