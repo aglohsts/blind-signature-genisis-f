@@ -1,6 +1,7 @@
 //! Integration tests: the full protocol through the public interface.
 //! Report: "Evaluation", functional correctness.
 
+use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
@@ -125,4 +126,46 @@ fn two_runs_on_one_message_send_different_requests() {
     let (first, _) = user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     let (second, _) = user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     assert_ne!(first.commitment, second.commitment);
+}
+
+/// The protocol layer is generic over the public function, so the same
+/// code has to carry a function whose key and randomness spaces are
+/// singletons. This is the fixed-function specialisation of the
+/// framework, and running it through the unchanged protocol is what
+/// makes the claim of Section "Scope and Design Goals" concrete: the
+/// scheme is not written against one $f$.
+#[test]
+fn the_protocol_carries_the_fixed_function_too() {
+    let sampler = Sampler::new(
+        gadget_parameters(D, Q_MOD, 1),
+        Q::from(100),
+        Q::from(1.005_f64),
+    );
+    let function = BinaryEncoding::new(1, 10, sampler.modulus().clone());
+    let parameters = Parameters {
+        ell_m: 2,
+        ell_r: 2,
+        psi: 3,
+        message_bound_sqrd: Z::from(16),
+        proof: ProofParameters {
+            witness_inf: 20,
+            mask_inf: 8000,
+        },
+    };
+    let (public_key, secret_key) = key_gen(function, sampler, parameters);
+    let message = sample_message();
+
+    let (request, state) =
+        user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+    let response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+        .expect("signer aborted");
+    assert!(user_check(&public_key, &state, &response));
+
+    let signature = finalise(state, response);
+    assert!(verify(&public_key, &message, &signature));
+
+    // The key and the randomness are the unit type here, so the only
+    // thing a session varies is the function input.
+    let other = &message + &message;
+    assert!(!verify(&public_key, &other, &signature));
 }
