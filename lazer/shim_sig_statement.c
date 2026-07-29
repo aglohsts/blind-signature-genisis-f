@@ -17,7 +17,7 @@
  * the second forces h to have an inverse u.
  */
 
-#define BS_SIG_D64_Q 281474976711349LL
+#define BS_SIG_D64_Q 288230376151711813LL
 
 static int64_t
 center_mod_sig_q (int64_t value)

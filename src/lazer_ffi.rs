@@ -15,7 +15,7 @@ use std::os::raw::c_char;
 pub const DEGREE: usize = 64;
 
 /// The modulus `q` shared by both profiles.
-pub const MODULUS: u64 = 281_474_976_711_349;
+pub const MODULUS: u64 = 288_230_376_151_711_813;
 
 /// The message and randomness bounds fixed by the generated profiles.
 pub const PROFILE_MESSAGE_BOUND_SQ: i64 = 16;
@@ -24,7 +24,7 @@ pub const PROFILE_FUNCTION_RANDOMNESS_BOUND_SQ: i64 = 2_000;
 /// The squared preimage bound the final-signature profile proves. It
 /// follows from the Gaussian width and the trapdoor dimensions, so a
 /// key whose sampler is configured differently cannot use the profile.
-pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 9_600_000;
+pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 6_553_600_000;
 pub const PROFILE_WITNESS_INF: i64 = 20;
 
 // The commitment profile: [B_1 | B_2] * (m; r) - c = 0.
@@ -34,7 +34,7 @@ pub const STATEMENT_COEFFICIENTS: usize = DEGREE;
 pub const WITNESS_COEFFICIENTS: usize = COMMITMENT_COLUMNS * DEGREE;
 
 // The final-signature profile. The bounded witness is (s, xi, r).
-pub const PREIMAGE_COLUMNS: usize = 15;
+pub const PREIMAGE_COLUMNS: usize = 10;
 pub const FUNCTION_RANDOMNESS_COLUMNS: usize = 2;
 pub const RANDOMNESS_COLUMNS: usize = 2;
 pub const BOUNDED_COLUMNS: usize =
@@ -426,9 +426,9 @@ mod tests {
 
     #[test]
     fn reports_expected_profile_sizes() {
-        assert_eq!(proof_len(), 22_682);
-        assert_eq!(final_signature_proof_len(), 23_960);
-        assert_eq!(final_signature_proof_capacity(), 47_920);
+        assert_eq!(proof_len(), 24_696);
+        assert_eq!(final_signature_proof_len(), 27_008);
+        assert_eq!(final_signature_proof_capacity(), 54_016);
     }
 
     #[test]

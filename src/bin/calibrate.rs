@@ -15,6 +15,15 @@
 //! sampler return is not enough: below the smoothing bound the output
 //! distribution depends on the basis, which is what leaks the trapdoor.
 //!
+//! The width has to be read at the degree the scheme will run at. The
+//! Gram-Schmidt norms of the basis grow with the ring degree, so a
+//! width taken at a smaller degree is an underestimate, and an
+//! underestimate is the dangerous direction. Measured at base 256, the
+//! width at degree 64 is 3023 where degree 8 gives 1480. Sweeping every
+//! base is only affordable at a small degree, so use the sweep to pick
+//! a base and then re-run at the real degree with that base to fix the
+//! width.
+//!
 //! Usage: cargo run --release --bin calibrate [degree] [modulus] [log2 base]
 //!
 //! Passing a base measures only that one, and also reports how long
@@ -49,6 +58,13 @@ fn main() {
 
     println!("calibrating at d = {degree}, q = {modulus}");
     println!("the last column is the modulus the proof system would need");
+    if degree < TARGET_DEGREE as i64 {
+        println!(
+            "WARNING: run at d = {degree}, so the widths below are lower than\n\
+             they are at d = {}; re-run at the real degree before using one.",
+            TARGET_DEGREE as i64
+        );
+    }
     println!(
         "{:>6} {:>4} {:>13} {:>15} {:>13}",
         "log2 b", "m", "least width", "bound at d=64", "needs log2 q"
@@ -66,8 +82,9 @@ fn main() {
         let columns = a.get_num_columns();
         let width = sampler.least_width(&trapdoor);
 
-        // The bound is stated at the degree the proof system runs at,
-        // not at the degree this sweep uses.
+        // The bound is stated at the degree the proof system runs at.
+        // When this sweep is run at a smaller degree the width, and so
+        // the bound, is an underestimate.
         let bound_sqrd = width * width * columns as f64 * TARGET_DEGREE;
         let barp = RANGE_PROOF_SLACK * bound_sqrd.sqrt();
         println!(
