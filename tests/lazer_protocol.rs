@@ -133,10 +133,17 @@ fn the_lazer_proof_layer_carries_the_protocol() {
         .prove(&public_key, &message, &witness)
         .expect("the LaZer final-signature prover failed");
     report("pi_sig, prove", started);
-    assert_eq!(
+    // The advanced encoder is variable-length, so the profile's figure
+    // is an upper bound rather than the size of any one proof. The
+    // commitment profile is padded to a fixed length and its proofs do
+    // have one exact size; this one does not.
+    let length = first.as_bytes().len();
+    assert!(
+        length <= lazer_ffi::final_signature_proof_len(),
+        "the proof is {length} bytes, above the profile's {}",
         lazer_ffi::final_signature_proof_len(),
-        first.as_bytes().len()
     );
+    eprintln!("    {:<26}: {length:>8} bytes", "pi_sig, encoded");
 
     let started = Instant::now();
     assert!(signature_provider.verify(&public_key, &message, &first));
