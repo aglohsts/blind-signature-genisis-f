@@ -20,7 +20,9 @@ use qfall_math::integer_mod_q::{
     MatPolynomialRingZq, MatZq, Modulus, ModulusPolynomialRingZq,
 };
 use qfall_math::rational::{MatQ, Q};
-use qfall_math::traits::{FromCoefficientEmbedding, IntoCoefficientEmbedding, Pow};
+use qfall_math::traits::{
+    FromCoefficientEmbedding, IntoCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, Pow,
+};
 use qfall_tools::primitive::psf::{PSF, PSFGPVRing};
 use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use qfall_tools::sample::g_trapdoor::short_basis_ring::gen_short_basis_for_trapdoor_ring;
@@ -165,6 +167,40 @@ impl Sampler {
     /// `log_base(q) + 2`.
     pub fn columns(&self) -> Z {
         self.psf.gp.m_bar.clone()
+    }
+
+    /// The largest Gram-Schmidt norm of the stored basis. Klein's
+    /// sampler is only correct for a width above this times a
+    /// smoothing factor, so it is what decides the width, and a
+    /// coarser gadget raises it.
+    pub fn max_gso_norm(&self, trapdoor: &Trapdoor) -> Q {
+        let mut largest = Q::ZERO;
+        for row in 0..trapdoor.basis_gso.get_num_rows() {
+            let mut squared = Q::ZERO;
+            for column in 0..trapdoor.basis_gso.get_num_columns() {
+                let entry: Q = trapdoor.basis_gso.get_entry(row, column).unwrap();
+                squared = squared + &entry * &entry;
+            }
+            if squared > largest {
+                largest = squared;
+            }
+        }
+        largest
+    }
+
+    /// The least width at which Klein's sampler is statistically
+    /// correct, for the stored basis. This is the smoothing condition
+    /// of the GPV framework with the statistical distance fixed at
+    /// `2^-64`; `max_gso_norm` returns the squared norm, so the
+    /// square root is taken here.
+    pub fn least_width(&self, trapdoor: &Trapdoor) -> f64 {
+        let dimension = trapdoor.basis_gso.get_num_rows() as f64;
+        let epsilon = 2.0_f64.powi(-64);
+        let smoothing = ((2.0 * dimension * (1.0 + 1.0 / epsilon)).ln()
+            / std::f64::consts::PI)
+            .sqrt();
+        let squared: f64 = f64::try_from(&self.max_gso_norm(trapdoor)).unwrap_or(f64::NAN);
+        squared.sqrt() * smoothing
     }
 
     /// Reports whether a sampled preimage is non-zero, which
