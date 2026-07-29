@@ -32,7 +32,7 @@ const SIG_SEED: [u8; 32] = [11; 32];
 
 fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
     let sampler = Sampler::new(
-        gadget_parameters(D, Q_MOD, 1),
+        gadget_parameters(D, Q_MOD, 4),
         Q::from(100),
         Q::from(1.005_f64),
     );
@@ -78,8 +78,8 @@ fn report(stage: &str, started: Instant) {
 #[test]
 fn the_profile_sizes_are_the_generated_ones() {
     assert_eq!(22_682, lazer_ffi::proof_len());
-    assert_eq!(32_234, lazer_ffi::final_signature_proof_len());
-    assert_eq!(55, lazer_ffi::BOUNDED_COLUMNS);
+    assert_eq!(23_960, lazer_ffi::final_signature_proof_len());
+    assert_eq!(19, lazer_ffi::BOUNDED_COLUMNS);
     assert!(!lazer_ffi::version().expect("LaZer version").is_empty());
 }
 
