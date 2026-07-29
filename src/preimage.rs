@@ -274,6 +274,57 @@ mod tests {
         assert!(wide.check_domain(&preimage));
     }
 
+    /// The stored basis must not change what is sampled, only when the
+    /// work is done. Both samplers are given the same trapdoor, so any
+    /// difference is in the caching and not in the parameters.
+    ///
+    /// Checking the equation is not enough: a wrong centre would still
+    /// solve it while shifting the distribution, which is what would
+    /// leak the trapdoor. The mean squared norm is compared instead,
+    /// because it moves under both a shifted centre and a wrong
+    /// orthogonalisation. This compares two moments, not two
+    /// distributions, so it is evidence rather than proof; what makes
+    /// it strong is that both samplers reach the same library routine,
+    /// and only the point at which the basis is orthogonalised differs.
+    #[test]
+    fn the_stored_basis_samples_the_same_distribution() {
+        const ROUNDS: usize = 60;
+        let sampler = toy_sampler(1);
+        let (a, trapdoor) = sampler.trap_gen();
+        let target = MatPolynomialRingZq::sample_uniform(1, 1, sampler.modulus());
+
+        // The reused sampler, given the same trapdoor and parameters.
+        let reference = PSFGPVRing {
+            gp: gadget_parameters(D, Q_MOD, 1),
+            s: Q::from(100),
+            s_td: Q::from(1.005_f64),
+        };
+        let reference_trapdoor = (trapdoor.r.clone(), trapdoor.e.clone());
+
+        let mut stored_total = Q::ZERO;
+        let mut reference_total = Q::ZERO;
+        for _ in 0..ROUNDS {
+            let stored = sampler.samp_p(&trapdoor, &target);
+            let plain = reference.samp_p(&a, &reference_trapdoor, &target);
+            assert_eq!(target, sampler.f_a(&a, &stored));
+            assert_eq!(target, sampler.f_a(&a, &plain));
+            stored_total = stored_total + Q::from(norm_eucl_sqrd(&stored, D));
+            reference_total = reference_total + Q::from(norm_eucl_sqrd(&plain, D));
+        }
+
+        let stored_mean = f64::try_from(&stored_total).unwrap() / ROUNDS as f64;
+        let reference_mean = f64::try_from(&reference_total).unwrap() / ROUNDS as f64;
+        let deviation = (stored_mean - reference_mean).abs() / reference_mean;
+        // The mean squared norm has a relative standard error near two
+        // per cent over this many rounds, so ten is a wide margin
+        // against flakiness and still far below any real discrepancy.
+        assert!(
+            deviation < 0.10,
+            "mean squared norm differs by {:.1}%: stored {stored_mean:.0}, reused {reference_mean:.0}",
+            deviation * 100.0,
+        );
+    }
+
     #[test]
     fn the_bound_matches_the_dimensions() {
         let sampler = toy_sampler(1);
