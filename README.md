@@ -68,11 +68,20 @@ default.
 
 The first build compiles FLINT from source and takes a few minutes.
 
-A demo of one full protocol run, followed by both public functions:
+An interactive run. Type a message and the four protocol steps are
+reported with their timings, the signature is checked, and the same
+signature is checked against a different message so that it visibly
+fails:
 
 ```sh
-cargo run --bin blind-sig
+cargo run --release --bin blind-sig
 ```
+
+Messages can also be given as arguments, which signs each in turn and
+exits. Signing one message twice shows a different transcript each
+time, which is the freshness blindness rests on. The message space of
+the toy parameters holds sixteen bits, so input is hashed into it
+first.
 
 Step timings and size estimates:
 
