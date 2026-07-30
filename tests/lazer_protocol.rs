@@ -14,7 +14,7 @@ use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
 use blind_sig::lazer_ffi;
 use blind_sig::module_lwe::ModuleLweEncoding;
-use blind_sig::preimage::{Sampler, gadget_parameters};
+use blind_sig::preimage::{Sampler, Sampling, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{
     FinalSignatureProofProvider, LazerSignatureProvider, finalise_with_provider, relation_holds,
@@ -30,11 +30,19 @@ const Q_MOD: u64 = 288_230_376_151_713_349;
 const COM_SEED: [u8; 32] = [7; 32];
 const SIG_SEED: [u8; 32] = [11; 32];
 
+/// The profile key uses the stored-basis sampler, and only that one.
+/// `Sampling::PerCall` is the reused sampler as it is shipped, and it is
+/// what makes degree 64 unreachable: it orthogonalises the short basis
+/// again for every preimage, so one issuing session would cost what the
+/// whole key costs here. The choice is asserted rather than assumed, so
+/// that the constraint of "Making the Two Components Meet" is recorded
+/// as an executable statement and not only as prose.
 fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
-    let sampler = Sampler::new(
+    let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 8),
         Q::from(3200),
         Q::from(1.005_f64),
+        Sampling::StoredBasis,
     );
     let function = ModuleLweEncoding::new(
         1,
@@ -96,6 +104,7 @@ fn the_lazer_proof_layer_carries_the_protocol() {
     let started = Instant::now();
     let (public_key, secret_key) = profile_keys();
     report("key generation", started);
+    assert_eq!(Sampling::StoredBasis, public_key.sampler.sampling());
     let commitment_provider = LazerProvider::new(COM_SEED);
     let signature_provider = LazerSignatureProvider::new(SIG_SEED);
     let message = profile_message(1, 1);

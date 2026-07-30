@@ -1,6 +1,7 @@
 //! Finalisation and verification.
-//! Report: "Finalisation", "Verification", and "The Final-Signature
-//! Proof".
+//! Report: "Local finalisation" and "Verification" of the construction,
+//! implemented as described in "The Commitment and the Protocol Layer"
+//! and, for the proof-based path, "The Proof Layer on LaZer".
 //!
 //! Two paths exist. The transparent signature carries the witness in
 //! the clear and gives no blindness; it is kept because it works for
@@ -49,7 +50,13 @@ pub fn verify<F: PublicFunction>(
     signature: &Signature<F>,
 ) -> bool {
     let degree = public_key.function.modulus().get_degree();
-    // The norm bounds come first because the reused f_a asserts them.
+    // Dimensions come first. The reused products assert their shapes,
+    // so an ill-formed input would stop the program rather than produce
+    // the rejection the report's Verify asks for. The same ordering
+    // argument applies to the norm bounds below, which f_a asserts.
+    if !has_layout(public_key, message, &signature.randomness, &signature.preimage, degree) {
+        return false;
+    }
     public_key
         .function
         .contains_input(&signature.function_input)
@@ -57,6 +64,7 @@ pub fn verify<F: PublicFunction>(
             .function
             .contains_randomness(&signature.function_randomness)
         && public_key.sampler.check_domain(&signature.preimage)
+        && public_key.sampler.is_non_zero(&signature.preimage)
         && norm_eucl_sqrd(message, degree) <= public_key.message_bound_sqrd
         && norm_eucl_sqrd(&signature.randomness, degree)
             <= public_key.commitment_key.randomness_bound_sqrd()
@@ -162,16 +170,13 @@ pub fn relation_holds(
 ) -> bool {
     let function = &public_key.function;
     let degree = function.modulus().get_degree();
-    if (message.get_num_rows(), message.get_num_columns())
-        != (public_key.commitment_key.b1.get_num_columns(), 1)
-        || (witness.randomness.get_num_rows(), witness.randomness.get_num_columns())
-            != (public_key.commitment_key.b2.get_num_columns(), 1)
-        || (witness.preimage.get_num_rows(), witness.preimage.get_num_columns())
-            != (public_key.a.get_num_columns(), 1)
-        || !fits_ring_degree(message, degree)
-        || !fits_ring_degree(&witness.randomness, degree)
-        || !fits_ring_degree(&witness.preimage, degree)
-        || !fits_ring_degree(&witness.function_randomness, degree)
+    if !has_layout(
+        public_key,
+        message,
+        &witness.randomness,
+        &witness.preimage,
+        degree,
+    ) || !fits_ring_degree(&witness.function_randomness, degree)
         || !is_binary(&witness.encoding)
     {
         return false;
@@ -200,6 +205,28 @@ pub fn relation_holds(
                 + &public_key
                     .commitment_key
                     .commit(message, &witness.randomness)
+}
+
+/// The shapes that the reused matrix products assert. Both verification
+/// paths check them before they compute anything, so an ill-formed
+/// input from a malicious signer or verifier is rejected rather than
+/// stopping the program.
+fn has_layout<F: PublicFunction>(
+    public_key: &PublicKey<F>,
+    message: &MatPolyOverZ,
+    randomness: &MatPolyOverZ,
+    preimage: &MatPolyOverZ,
+    degree: i64,
+) -> bool {
+    (message.get_num_rows(), message.get_num_columns())
+        == (public_key.commitment_key.b1.get_num_columns(), 1)
+        && (randomness.get_num_rows(), randomness.get_num_columns())
+            == (public_key.commitment_key.b2.get_num_columns(), 1)
+        && (preimage.get_num_rows(), preimage.get_num_columns())
+            == (public_key.a.get_num_columns(), 1)
+        && fits_ring_degree(message, degree)
+        && fits_ring_degree(randomness, degree)
+        && fits_ring_degree(preimage, degree)
 }
 
 fn fits_ring_degree(vector: &MatPolyOverZ, degree: i64) -> bool {
@@ -293,6 +320,40 @@ mod tests {
         shift.set_entry(0, 0, PolyOverZ::from(10 * Q_MOD)).unwrap();
         signature.preimage = &signature.preimage + &shift;
         assert!(!verify(&public_key, &message, &signature));
+    }
+
+    /// R_sig asks for `0 < ||s||`; the reused bound check accepts zero,
+    /// so verification supplies the other half itself.
+    #[test]
+    fn a_zero_preimage_fails_verification() {
+        let (public_key, secret_key, message) = setup();
+        let mut signature = honest_signature(&public_key, &secret_key, &message);
+        signature.preimage = MatPolyOverZ::new(signature.preimage.get_num_rows(), 1);
+        assert!(public_key.sampler.check_domain(&signature.preimage));
+        assert!(!verify(&public_key, &message, &signature));
+    }
+
+    /// A message of the wrong length must be rejected, not stop the
+    /// program: the reused commitment product asserts its shapes.
+    #[test]
+    fn a_wrong_length_message_is_rejected() {
+        let (public_key, secret_key, message) = setup();
+        let signature = honest_signature(&public_key, &secret_key, &message);
+        assert!(!verify(&public_key, &MatPolyOverZ::new(1, 1), &signature));
+        assert!(!verify(&public_key, &MatPolyOverZ::new(3, 1), &signature));
+    }
+
+    /// The same for the two witness vectors carried by the signature.
+    #[test]
+    fn a_wrong_length_witness_is_rejected() {
+        let (public_key, secret_key, message) = setup();
+        let mut short_randomness = honest_signature(&public_key, &secret_key, &message);
+        short_randomness.randomness = MatPolyOverZ::new(1, 1);
+        assert!(!verify(&public_key, &message, &short_randomness));
+
+        let mut short_preimage = honest_signature(&public_key, &secret_key, &message);
+        short_preimage.preimage = MatPolyOverZ::new(1, 1);
+        assert!(!verify(&public_key, &message, &short_preimage));
     }
 
     #[test]

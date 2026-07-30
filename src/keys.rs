@@ -1,5 +1,6 @@
 //! Key generation: `pk = (A, B_1, B_2, kappa)` and `sk = T_A`.
-//! Report: "Key generation".
+//! Report: "Key generation" of the construction, implemented as
+//! described in "The Commitment and the Protocol Layer".
 
 use crate::commitment::CommitmentKey;
 use crate::preimage::{Sampler, Trapdoor};
@@ -47,6 +48,18 @@ pub fn key_gen<F: PublicFunction>(
     );
     // This is where the short basis is orthogonalised, once per key.
     let (a, trapdoor) = sampler.trap_gen();
+    // The smoothing condition is checked here rather than trusted from
+    // a comment. A width below it leaves every observable behaviour
+    // intact and only shifts the output distribution towards the secret
+    // basis, so nothing later in the protocol can notice.
+    assert!(
+        sampler.width_meets_smoothing(&trapdoor),
+        "the Gaussian width is below the smoothing bound of this basis: \
+         the width is {}, the basis needs at least {:.1}. Run \
+         `cargo run --release --bin calibrate` at this degree and base.",
+        sampler.width(),
+        sampler.least_width(&trapdoor),
+    );
     let commitment_key = CommitmentKey::generate(
         parameters.ell_m,
         parameters.ell_r,
@@ -144,6 +157,21 @@ pub mod tests {
         let preimage = public_key.sampler.samp_p(&secret_key.trapdoor, &target);
         assert_eq!(target, public_key.sampler.f_a(&public_key.a, &preimage));
         assert!(public_key.sampler.check_domain(&preimage));
+    }
+
+    /// A width below the smoothing bound of its own basis is refused,
+    /// so a key whose sampler leaks towards the trapdoor cannot be
+    /// built. Report: "A Parameter That Was Silently Wrong".
+    #[test]
+    #[should_panic(expected = "below the smoothing bound")]
+    fn a_width_below_the_smoothing_bound_is_rejected() {
+        let sampler = Sampler::new(
+            gadget_parameters(D, Q_MOD, 1),
+            Q::from(1),
+            Q::from(1.005_f64),
+        );
+        let function = toy_function(&sampler, "smoothing-test");
+        key_gen(function, sampler, toy_parameters());
     }
 
     #[test]

@@ -6,7 +6,7 @@ use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
-use blind_sig::preimage::{Sampler, gadget_parameters};
+use blind_sig::preimage::{Sampler, Sampling, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::public_function::PublicFunction;
 use blind_sig::signature::{finalise, verify};
@@ -22,12 +22,19 @@ const ELL_M: i64 = 2;
 const ELL_R: i64 = 2;
 const PSI: i64 = 3;
 const REPS: u32 = 20;
+/// Fewer repetitions for the sampler comparison: the per-call mode
+/// orthogonalises the short basis on every call, so it is the slowest
+/// thing the benchmark does.
+const SAMPLER_REPS: u32 = 5;
+/// The number of issuing sessions the totals below are quoted for.
+const SESSIONS: f64 = 20.0;
 
-fn toy_sampler() -> Sampler {
-    Sampler::new(
+fn toy_sampler_with(sampling: Sampling) -> Sampler {
+    Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
         Q::from(100),
         Q::from(1.005_f64),
+        sampling,
     )
 }
 
@@ -45,7 +52,11 @@ fn toy_parameters() -> Parameters {
 }
 
 fn fresh_keys() -> (PublicKey<HashToRing>, SecretKey) {
-    let sampler = toy_sampler();
+    fresh_keys_with(Sampling::default())
+}
+
+fn fresh_keys_with(sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
+    let sampler = toy_sampler_with(sampling);
     let function = HashToRing::new(
         1,
         1u64 << 10,
@@ -55,6 +66,21 @@ fn fresh_keys() -> (PublicKey<HashToRing>, SecretKey) {
         "bench",
     );
     key_gen(function, sampler, toy_parameters())
+}
+
+/// Times key generation and one signer response under one sampler.
+/// These are the only two steps the choice of sampler reaches: the
+/// commitment, the proof, the user check and verification never touch
+/// the trapdoor.
+fn measure_sampler(sampling: Sampling) -> (f64, f64) {
+    let keygen_ms = time_ms(SAMPLER_REPS, || fresh_keys_with(sampling));
+    let (public_key, secret_key) = fresh_keys_with(sampling);
+    let message = MatPolyOverZ::sample_uniform(ELL_M, 1, D - 1, 0, 2).unwrap();
+    let (request, _) = user_request(&public_key, &message, &FiatShamirProvider).unwrap();
+    let respond_ms = time_ms(SAMPLER_REPS, || {
+        signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).unwrap()
+    });
+    (keygen_ms, respond_ms)
 }
 
 fn time_ms<T>(reps: u32, mut action: impl FnMut() -> T) -> f64 {
@@ -130,14 +156,46 @@ fn main() {
     let response_bits = bits_for(public_key.proof_parameters.response_inf(D));
     let preimage_bits = bits_for(max_abs_coeff(&signature.preimage));
     let randomness_bits = bits_for(max_abs_coeff(&signature.randomness));
-    let space_bits = 20;
+    // mu and xi are drawn from ranges of different sizes, so they are
+    // counted separately; this key uses 2^20 and 2^10.
+    let mu_bits = 20_i64;
+    let xi_bits = 10_i64;
     let preimage_rows = public_key.a.get_num_columns();
 
     let commitment_bytes = packed_bytes(D, modulus_bits);
     let proof_bytes = packed_bytes(D, 2) + packed_bytes((ELL_M + ELL_R) * D, response_bits);
     let response_bytes =
-        packed_bytes(preimage_rows * D, preimage_bits) + 2 * (space_bits as i64 + 7) / 8;
+        packed_bytes(preimage_rows * D, preimage_bits) + (mu_bits + 7) / 8 + (xi_bits + 7) / 8;
     let signature_bytes = response_bytes + packed_bytes(ELL_R * D, randomness_bits);
+
+    println!("\nthe two preimage samplers (mean, ms):");
+    println!("  the choice reaches key generation and the signer response only;");
+    println!("  every other step is identical, and both produce signatures the");
+    println!("  same verifier accepts.");
+    println!(
+        "\n  {:<10} {:>14} {:>16} {:>18}",
+        "sampler", "key gen", "signer response", "one key + 20"
+    );
+    for sampling in Sampling::ALL {
+        let (keygen, respond) = measure_sampler(sampling);
+        println!(
+            "  {:<10} {keygen:>14.2} {respond:>16.2} {:>18.2}",
+            sampling.name(),
+            keygen + respond * SESSIONS,
+        );
+    }
+    println!(
+        "\n  Both modes orthogonalise the short basis once at key generation,"
+    );
+    println!(
+        "  because KeyGen checks the smoothing condition against it. The"
+    );
+    println!(
+        "  per-call mode then orthogonalises it again for every preimage,"
+    );
+    println!(
+        "  which is what the reused component does as it is shipped."
+    );
 
     println!("\nsize estimates (packed coefficients, bytes):");
     println!("  request (c, pi_com)     : {}", commitment_bytes + proof_bytes);

@@ -1,5 +1,6 @@
 //! The one-round issuing protocol.
-//! Report: "Issuing protocol".
+//! Report: "Issuing protocol" of the construction, implemented as
+//! described in "The Commitment and the Protocol Layer".
 
 use crate::commitment_proof::CommitmentProofProvider;
 use crate::keys::{PublicKey, SecretKey};
@@ -27,6 +28,20 @@ pub struct Response<F: PublicFunction> {
     pub function_input: F::Input,
     pub function_randomness: F::Randomness,
     pub preimage: MatPolyOverZ,
+}
+
+/// Why the signer produced no response. The three cases are the abort
+/// conditions of Step 2 and they are not interchangeable: the first is
+/// a decision about the user's request, the other two are failures of
+/// the signer's own sampler.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignerAbort {
+    /// `Verify_com` rejected the proof that came with the request.
+    ProofRejected,
+    /// The sampled preimage missed the norm bound `B_s`.
+    PreimageOutsideBound,
+    /// The sampled preimage was zero, which `R_sig` excludes.
+    ZeroPreimage,
 }
 
 /// Step 1: the user samples r, commits, proves knowledge of the
@@ -57,20 +72,20 @@ where
 }
 
 /// Step 2: the signer verifies the proof, then samples mu and xi and a
-/// short preimage for the target f(kappa, mu, xi) + c. It returns None
-/// when the proof fails or the preimage misses the norm bound.
+/// short preimage for the target f(kappa, mu, xi) + c. The three abort
+/// conditions of the report are returned as distinct reasons.
 pub fn signer_respond<F, P>(
     public_key: &PublicKey<F>,
     secret_key: &SecretKey,
     request: &Request<P::Proof>,
     provider: &P,
-) -> Option<Response<F>>
+) -> Result<Response<F>, SignerAbort>
 where
     F: PublicFunction,
     P: CommitmentProofProvider<F>,
 {
     if !provider.verify(public_key, &request.commitment, &request.proof) {
-        return None;
+        return Err(SignerAbort::ProofRejected);
     }
     let function_input = public_key.function.sample_input();
     let function_randomness = public_key.function.sample_randomness();
@@ -81,9 +96,14 @@ where
     ) + &request.commitment;
     let preimage = public_key.sampler.samp_p(&secret_key.trapdoor, &target);
     if !public_key.sampler.check_domain(&preimage) {
-        return None;
+        return Err(SignerAbort::PreimageOutsideBound);
     }
-    Some(Response {
+    // The reused bound check is an upper bound only, so the other half
+    // of `0 < ||s|| <= B_s` is checked here.
+    if !public_key.sampler.is_non_zero(&preimage) {
+        return Err(SignerAbort::ZeroPreimage);
+    }
+    Ok(Response {
         function_input,
         function_randomness,
         preimage,
@@ -97,6 +117,8 @@ pub fn user_check<F: PublicFunction>(
     response: &Response<F>,
 ) -> bool {
     // The norm bound comes first because the reused f_a asserts it.
+    // `check_domain` is an upper bound only, so `is_non_zero` supplies
+    // the `0 < ||s||` half of the report's Step 3 check.
     public_key
         .function
         .contains_input(&response.function_input)
@@ -104,6 +126,7 @@ pub fn user_check<F: PublicFunction>(
             .function
             .contains_randomness(&response.function_randomness)
         && public_key.sampler.check_domain(&response.preimage)
+        && public_key.sampler.is_non_zero(&response.preimage)
         && public_key.sampler.f_a(&public_key.a, &response.preimage)
             == &public_key.function.eval(
                 &public_key.function_key,
@@ -122,6 +145,7 @@ mod tests {
         tests::{toy_function, toy_parameters, toy_sampler},
     };
     use qfall_math::integer::Z;
+    use qfall_math::traits::MatrixDimensions;
 
     const D: i64 = 8;
 
@@ -196,6 +220,23 @@ mod tests {
         assert!(!user_check(&public_key, &state, &response));
     }
 
+    /// Step 3 asks for `0 < ||s||`, and the reused bound check does not
+    /// supply the left half: it accepts the zero vector. The equation
+    /// fails here as well, so this is a regression guard on the extra
+    /// check rather than an isolation of it; `preimage.rs` isolates the
+    /// gap in the reused component itself.
+    #[test]
+    fn a_zero_preimage_fails_the_user_check() {
+        let (public_key, secret_key, message) = setup();
+        let (request, state) =
+            user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
+        let mut response = signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+            .expect("signer aborted");
+        response.preimage = MatPolyOverZ::new(response.preimage.get_num_rows(), 1);
+        assert!(public_key.sampler.check_domain(&response.preimage));
+        assert!(!user_check(&public_key, &state, &response));
+    }
+
     #[test]
     fn an_invalid_proof_makes_the_signer_abort() {
         let (public_key, secret_key, message) = setup();
@@ -203,8 +244,10 @@ mod tests {
             user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
         request.proof.message_response =
             &request.proof.message_response + &request.proof.message_response;
-        assert!(
-            signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).is_none()
+        assert_eq!(
+            Err(SignerAbort::ProofRejected),
+            signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider)
+                .map(|_| ())
         );
     }
 

@@ -1,6 +1,6 @@
 //! An interactive run of the scheme. Type a message, watch the four
 //! protocol steps, and see the signature checked.
-//! Report: "Prototype Implementation".
+//! Report: "Testing", the demo binary.
 //!
 //! The parameters are the toy ones, so this is quick enough to be
 //! interactive but gives no security. The LaZer proof layer is not used
@@ -10,12 +10,18 @@
 //!
 //! Messages given on the command line are signed in order and the
 //! program exits; with no arguments it reads them from the terminal.
+//!
+//! `--sampler=stored` or `--sampler=per-call` chooses which preimage
+//! sampler the key uses. The two are interchangeable and produce
+//! signatures the same verifier accepts; they differ in when the short
+//! basis is orthogonalised, which is what the timings below make
+//! visible.
 
 use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
 use blind_sig::issue::{signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
-use blind_sig::preimage::{Sampler, gadget_parameters};
+use blind_sig::preimage::{Sampler, Sampling, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
@@ -77,10 +83,12 @@ fn sign_and_report(
     );
 
     let started = Instant::now();
-    let Some(response) = signer_respond(public_key, secret_key, &request, &FiatShamirProvider)
-    else {
-        println!("  2  the signer aborted: the proof or the preimage bound failed");
-        return;
+    let response = match signer_respond(public_key, secret_key, &request, &FiatShamirProvider) {
+        Ok(response) => response,
+        Err(reason) => {
+            println!("  2  the signer aborted: {reason:?}");
+            return;
+        }
     };
     println!(
         "  2  signer -> user    mu, xi and a preimage    {:>8.2} ms",
@@ -122,16 +130,62 @@ fn sign_and_report(
     );
 }
 
+/// Splits `--sampler=<mode>` out of the arguments. Everything else is
+/// returned in order and treated as a message.
+fn parse_arguments() -> Result<(Sampling, Vec<String>), String> {
+    let mut sampling = Sampling::default();
+    let mut messages = Vec::new();
+    let mut arguments = std::env::args().skip(1);
+    while let Some(argument) = arguments.next() {
+        let value = match argument.strip_prefix("--sampler=") {
+            Some(value) => Some(value.to_string()),
+            None if argument == "--sampler" => Some(
+                arguments
+                    .next()
+                    .ok_or_else(|| "--sampler needs a value".to_string())?,
+            ),
+            None => None,
+        };
+        match value {
+            Some(value) => {
+                sampling = Sampling::parse(&value).ok_or_else(|| {
+                    format!("unknown sampler \"{value}\"; use \"stored\" or \"per-call\"")
+                })?;
+            }
+            None => messages.push(argument),
+        }
+    }
+    Ok((sampling, messages))
+}
+
 fn main() {
+    let (sampling, arguments) = match parse_arguments() {
+        Ok(parsed) => parsed,
+        Err(problem) => {
+            eprintln!("blind-sig: {problem}");
+            eprintln!("usage: blind-sig [--sampler=stored|per-call] [message ...]");
+            std::process::exit(2);
+        }
+    };
+
     println!("== blind-sig, interactive ==");
     println!("ring R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank 1, message space {MESSAGE_BITS} bits");
     println!("toy parameters: quick enough to be interactive, and not secure");
-    println!("the commitment proof is the native one; the signature carries its witness\n");
+    println!("the commitment proof is the native one; the signature carries its witness");
+    match sampling {
+        Sampling::StoredBasis => println!(
+            "sampler: stored  (the short basis is orthogonalised once, at key generation)\n"
+        ),
+        Sampling::PerCall => println!(
+            "sampler: per-call  (the short basis is orthogonalised again on every signature)\n"
+        ),
+    }
 
-    let sampler = Sampler::new(
+    let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
         Q::from(100),
         Q::from(1.005_f64),
+        sampling,
     );
     let function = HashToRing::new(
         1,
@@ -160,7 +214,6 @@ fn main() {
     );
     println!("the function key kappa = {}\n", public_key.function_key);
 
-    let arguments: Vec<String> = std::env::args().skip(1).collect();
     if !arguments.is_empty() {
         for text in &arguments {
             println!("message: {text}");

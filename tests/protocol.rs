@@ -4,9 +4,9 @@
 use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
-use blind_sig::issue::{signer_respond, user_check, user_request};
+use blind_sig::issue::{SignerAbort, signer_respond, user_check, user_request};
 use blind_sig::keys::{Parameters, PublicKey, SecretKey, key_gen};
-use blind_sig::preimage::{Sampler, gadget_parameters};
+use blind_sig::preimage::{Sampler, Sampling, gadget_parameters};
 use blind_sig::proof_com::ProofParameters;
 use blind_sig::signature::{Signature, finalise, verify};
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
@@ -17,10 +17,19 @@ const D: i64 = 8;
 const Q_MOD: u64 = 257;
 
 fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
-    let sampler = Sampler::new(
+    keys_with(separator, Sampling::default())
+}
+
+/// The protocol is run under both preimage samplers. They are meant to
+/// be interchangeable, so every claim about an honest run is asserted
+/// for each; a mode that worked only because it is the default would
+/// not be an alternative to the other.
+fn keys_with(separator: &str, sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
+    let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
         Q::from(100),
         Q::from(1.005_f64),
+        sampling,
     );
     let function = HashToRing::new(
         1,
@@ -62,20 +71,49 @@ fn honest_run(
 
 #[test]
 fn an_honest_signature_verifies() {
-    let (public_key, secret_key) = keys("honest");
-    let message = sample_message();
-    let signature = honest_run(&public_key, &secret_key, &message);
-    assert!(verify(&public_key, &message, &signature));
+    for sampling in Sampling::ALL {
+        let (public_key, secret_key) = keys_with("honest", sampling);
+        assert_eq!(sampling, public_key.sampler.sampling());
+        let message = sample_message();
+        let signature = honest_run(&public_key, &secret_key, &message);
+        assert!(verify(&public_key, &message, &signature), "{sampling}");
+    }
 }
 
 #[test]
 fn ten_honest_runs_verify_under_one_key() {
-    let (public_key, secret_key) = keys("repeat");
-    for _ in 0..10 {
-        let message = sample_message();
-        let signature = honest_run(&public_key, &secret_key, &message);
-        assert!(verify(&public_key, &message, &signature));
+    for sampling in Sampling::ALL {
+        let (public_key, secret_key) = keys_with("repeat", sampling);
+        for _ in 0..10 {
+            let message = sample_message();
+            let signature = honest_run(&public_key, &secret_key, &message);
+            assert!(verify(&public_key, &message, &signature), "{sampling}");
+        }
     }
+}
+
+/// The signatures the two samplers produce are accepted by the same
+/// verifier, under the same public key, with no knowledge of which
+/// sampler made them. This is what "interchangeable" has to mean.
+#[test]
+fn either_sampler_produces_signatures_the_other_key_verifies() {
+    let (stored_key, stored_secret) = keys_with("swap", Sampling::StoredBasis);
+    let message = sample_message();
+    let from_stored = honest_run(&stored_key, &stored_secret, &message);
+
+    let per_call_key = PublicKey {
+        sampler: Sampler::with_sampling(
+            gadget_parameters(D, Q_MOD, 1),
+            Q::from(100),
+            Q::from(1.005_f64),
+            Sampling::PerCall,
+        ),
+        ..stored_key
+    };
+    assert!(verify(&per_call_key, &message, &from_stored));
+
+    let from_per_call = honest_run(&per_call_key, &stored_secret, &message);
+    assert!(verify(&per_call_key, &message, &from_per_call));
 }
 
 #[test]
@@ -114,7 +152,10 @@ fn an_invalid_proof_makes_the_signer_abort() {
         user_request(&public_key, &message, &FiatShamirProvider).expect("proof");
     request.proof.message_response =
         &request.proof.message_response + &request.proof.message_response;
-    assert!(signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).is_none());
+    assert_eq!(
+        Err(SignerAbort::ProofRejected),
+        signer_respond(&public_key, &secret_key, &request, &FiatShamirProvider).map(|_| ()),
+    );
 }
 
 /// Two runs on the same message use fresh randomness, so the requests
