@@ -15,11 +15,21 @@ project="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$project"
 output="${1:-evidence-$(date +%Y%m%d-%H%M%S).log}"
 
-lazer_src="$project/.lazer-src"
-hexl="$lazer_src/third_party/hexl-development/build/hexl/lib"
+# Two layouts produce the libraries: scripts/build-lazer.sh writes the
+# LaZer source tree to .lazer-src, and the Docker recipe in lazer/README.md
+# exports headers and archives to .lazer. Accept either.
 have_lazer=no
-if [ -f "$lazer_src/liblazer.a" ] && [ -f "$hexl/libhexl.a" ]; then
+if [ -f "$project/.lazer-src/liblazer.a" ] \
+    && [ -f "$project/.lazer-src/third_party/hexl-development/build/hexl/lib/libhexl.a" ]; then
     have_lazer=yes
+    include_dir="$project/.lazer-src"
+    lib_dir="$project/.lazer-src"
+    hexl="$project/.lazer-src/third_party/hexl-development/build/hexl/lib"
+elif [ -f "$project/.lazer/lib/liblazer.a" ] && [ -f "$project/.lazer/lib/libhexl.a" ]; then
+    have_lazer=yes
+    include_dir="$project/.lazer/include"
+    lib_dir="$project/.lazer/lib"
+    hexl="$project/.lazer/lib"
 fi
 
 section() {
@@ -76,8 +86,8 @@ NOTE
         section "4. Test suite, with the LaZer proof layer"
         printf 'Single-threaded: LaZer keeps process-wide state behind a\n'
         printf 'one-time initialiser. Key generation at degree 64 dominates.\n\n'
-        LAZER_INCLUDE_DIR="$lazer_src" \
-        LAZER_LIB_DIR="$lazer_src" \
+        LAZER_INCLUDE_DIR="$include_dir" \
+        LAZER_LIB_DIR="$lib_dir" \
         LAZER_HEXL_LIB_DIR="$hexl" \
         cargo test --release --features lazer-ffi -- --test-threads=1 --nocapture 2>&1 \
             | grep -v '^WARNING: A completely filled' || true
@@ -87,8 +97,14 @@ NOTE
         printf 'Run scripts/build-lazer.sh first; it needs x86-64.\n'
     fi
 
-    section "5. A worked protocol run"
-    cargo run --release --quiet --bin blind-sig -- "hello world" "hello world" 2>&1
+    section "5. A worked protocol run, under each preimage sampler"
+    printf 'The two samplers are interchangeable: the same message is signed\n'
+    printf 'and verified under each, and only the timings differ.\n'
+    for sampler in stored per-call; do
+        printf '\n--- sampler: %s ---\n\n' "$sampler"
+        cargo run --release --quiet --bin blind-sig -- \
+            "--sampler=$sampler" "hello world" "hello world" 2>&1
+    done
 
     section "6. Step timings and size estimates, toy parameters"
     cargo run --release --quiet --bin bench 2>&1

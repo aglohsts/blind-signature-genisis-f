@@ -15,8 +15,10 @@ uninitialised. The build applies
 `patches/0002-initialise-sparse-encoding.patch` to make transcript hashes
 independent of prior heap contents.
 
-Both profiles use the ring `d = 64`, `q = 281474976711349`, so one public key
-serves both proofs. The toy demo stays at `d = 8` and does not enable LaZer.
+Both profiles use the ring `d = 64`, `q = 288230376151713349`, so one public
+key serves both proofs. The advanced generator is given a bit length and picks
+its own prime, so the agreement is asserted by a test rather than read off the
+source profiles. The toy demo stays at `d = 8` and does not enable LaZer.
 
 ## The two relations
 
@@ -84,7 +86,7 @@ The shims own all LaZer-specific types; the Rust side sees only `i64`
 coefficient slices. They validate the checked-in norm bounds before calling
 LaZer and prevent the verifier from passing a short proof to LaZer's
 lengthless decoder. For `Pi_com`, LaZer's parameter length is treated as a
-fixed 22,682-byte transport buffer, with unused bytes zeroed and checked as
+fixed 24,696-byte transport buffer, with unused bytes zeroed and checked as
 canonical padding.
 
 ## Run the Rust integration tests
@@ -128,4 +130,5 @@ docker run --rm --platform linux/amd64 --volume "$PWD:/project" blind-sig-lazer-
 
 Generated headers, source profiles, the LaZer revision, and their shims must
 be reviewed and updated together. The proof lengths asserted by the Rust tests
-(22,682 and 32,234 bytes) change whenever a profile changes.
+(24,696 bytes for `Pi_com`, and 27,008 as the declared maximum for `Pi_sig`)
+change whenever a profile changes.
