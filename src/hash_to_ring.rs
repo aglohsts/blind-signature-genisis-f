@@ -52,7 +52,6 @@ impl HashToRing {
             domain_separator: domain_separator.into(),
         }
     }
-
 }
 
 impl PublicFunction for HashToRing {

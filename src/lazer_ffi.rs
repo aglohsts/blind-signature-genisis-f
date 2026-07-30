@@ -1,5 +1,5 @@
 //! Safe Rust boundary for the fixed LaZer `d = 64` profiles.
-//! Report: "LaZer Integration".
+//! Report: "The Proof Layer on LaZer".
 //!
 //! Two profiles are exposed. The linear profile proves the commitment
 //! relation of `Pi_com`; the advanced profile proves the

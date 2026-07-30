@@ -1,5 +1,5 @@
 //! The commitment `c = B_1 m + B_2 r` over `R_q`.
-//! Report: "The Commitment".
+//! Report: "The Commitment and the Protocol Layer".
 
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};

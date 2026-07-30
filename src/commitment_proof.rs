@@ -1,5 +1,6 @@
 //! Commitment-proof providers for the issuing protocol.
-//! Report: "The Proof Layer" and "LaZer Integration".
+//! Report: "The Native Proof Layer" and "The Proof Layer on
+//! LaZer".
 //!
 //! The issuing protocol talks to `Pi_com` through this trait, so the
 //! native Fiat--Shamir proof and the LaZer proof are interchangeable.

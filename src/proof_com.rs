@@ -1,12 +1,13 @@
 //! A Fiat-Shamir proof with rejection sampling for the commitment
 //! relation `c = B_1 m + B_2 r`.
-//! Report: "The Proof Layer".
+//! Report: "The Native Proof Layer".
 
 use crate::commitment::CommitmentKey;
+use crate::util::norm_inf;
 use qfall_math::integer::{MatPolyOverZ, PolyOverZ, Z};
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use qfall_math::traits::{
-    IntoCoefficientEmbedding, MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient,
+    MatrixDimensions, MatrixGetEntry, MatrixSetEntry, SetCoefficient,
 };
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
 
@@ -143,13 +144,6 @@ fn multiply(challenge: &PolyOverZ, vector: &MatPolyOverZ, degree: i64) -> MatPol
         result.set_entry(i, 0, product).unwrap();
     }
     result
-}
-
-fn norm_inf(vector: &MatPolyOverZ, degree: i64) -> Z {
-    vector
-        .clone()
-        .into_coefficient_embedding(degree)
-        .norm_l_infty_infty()
 }
 
 #[cfg(test)]

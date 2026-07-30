@@ -1,5 +1,5 @@
 //! Calibrates the gadget base against the Gaussian width.
-//! Report: "The Two Components Do Not Meet".
+//! Report: "Making the Two Components Meet".
 //!
 //! A larger gadget base shortens the preimage, which is what makes the
 //! orthogonalisation of the short basis affordable, but it also makes
@@ -49,7 +49,7 @@ fn main() {
     let modulus: u64 = args
         .next()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(281_474_976_711_349);
+        .unwrap_or(288_230_376_151_713_349);
     let only: Option<u32> = args.next().and_then(|v| v.parse().ok());
     let bases: Vec<u32> = match only {
         Some(base) => vec![base],

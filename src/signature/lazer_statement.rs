@@ -1,5 +1,5 @@
 //! The LaZer provider for the final-signature relation `R_sig`.
-//! Report: "The Final-Signature Proof".
+//! Report: "The Proof Layer on LaZer".
 //!
 //! The relation
 //!
