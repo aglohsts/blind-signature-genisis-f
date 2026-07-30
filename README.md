@@ -135,6 +135,21 @@ Step 1 runs normally. The layer is verified on a native x86-64 runner by
 `.github/workflows/lazer.yml`; those steps are executed on every push, so they
 cannot drift from the code.
 
+## Producing the whole evidence set at once
+
+One script runs everything in order and writes a single log: the
+machine it ran on, where every parameter comes from, both test suites,
+a worked protocol run, the step timings, and a note on what the numbers
+do and do not establish.
+
+```sh
+scripts/evidence.sh
+```
+
+The LaZer sections are included when the libraries are built and
+skipped with a note when they are not, so the log is complete on any
+platform and says what is missing from it.
+
 ## Layout
 
 ```text
@@ -151,6 +166,8 @@ src/signature.rs         finalisation, verification, and Pi_sig providers
 src/lazer_ffi.rs         the safe boundary to the two LaZer profiles
 lazer/                   pinned revision, patches, C shims, and profiles
 scripts/build-lazer.sh   builds the pinned LaZer static libraries
+scripts/evidence.sh      runs everything and writes one log
+src/bin/calibrate.rs     derives the width, bound and modulus chain
 ```
 
 Each proof system is reached through a provider trait, so the native
