@@ -38,7 +38,21 @@ section() {
     printf '========================================================\n\n'
 }
 
+# The whole run is piped through tee, and a pipe makes the commands
+# inside block-buffer their output, so the screen falls a long way
+# behind. Keep a handle on the terminal and report progress on it, so
+# a section that takes twenty minutes does not look like a hang.
+exec 3>&1
+started_at=$(date +%s)
+
+note() {
+    elapsed=$(( $(date +%s) - started_at ))
+    printf '[%3dm %02ds] %s\n' \
+        $(( elapsed / 60 )) $(( elapsed % 60 )) "$1" >&3
+}
+
 {
+    note "1/7 environment"
     section "1. Environment"
     printf 'date        : %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
     printf 'machine     : %s %s\n' "$(uname -s)" "$(uname -m)"
@@ -51,6 +65,7 @@ section() {
         printf 'LaZer commit: %s\n' "$(cat lazer/LAZER_REVISION)"
     fi
 
+    note "2/7 parameter derivation (a few minutes)"
     section "2. Where the parameters come from"
     cat <<'NOTE'
 Each value below is the output of a stated condition, not a choice, and
@@ -79,10 +94,13 @@ NOTE
     cargo run --release --quiet --bin parameters -- 8 288230376151713349 2>&1 \
         | grep -v '^WARNING: A completely filled' || true
 
+    note "3/7 test suite without LaZer (under a minute)"
     section "3. Test suite, without LaZer"
     cargo test --release 2>&1 | grep -vE '^\s*$'
 
     if [ "$have_lazer" = yes ]; then
+        note "4/7 test suite with LaZer: this generates a key at degree 64"
+        note "     and takes 20 to 30 minutes. Nothing is wrong if it is quiet."
         section "4. Test suite, with the LaZer proof layer"
         printf 'Single-threaded: LaZer keeps process-wide state behind a\n'
         printf 'one-time initialiser. Key generation at degree 64 dominates.\n\n'
@@ -92,11 +110,13 @@ NOTE
         cargo test --release --features lazer-ffi -- --test-threads=1 --nocapture 2>&1 \
             | grep -v '^WARNING: A completely filled' || true
     else
+        note "4/7 LaZer test suite skipped: the libraries are not built"
         section "4. Test suite, with the LaZer proof layer  [SKIPPED]"
         printf 'The pinned LaZer libraries are not built in this checkout.\n'
         printf 'Run scripts/build-lazer.sh first; it needs x86-64.\n'
     fi
 
+    note "5/7 a worked protocol run under each sampler"
     section "5. A worked protocol run, under each preimage sampler"
     printf 'The two samplers are interchangeable: the same message is signed\n'
     printf 'and verified under each, and only the timings differ.\n'
@@ -106,9 +126,11 @@ NOTE
             "--sampler=$sampler" "hello world" "hello world" 2>&1
     done
 
+    note "6/7 step timings and sizes (a few minutes)"
     section "6. Step timings and size estimates, toy parameters"
     cargo run --release --quiet --bin bench 2>&1
 
+    note "7/7 closing note"
     section "7. What these numbers do and do not establish"
     cat <<'NOTE'
 They establish that the scheme runs, that both proof systems accept the
@@ -126,4 +148,5 @@ commitment proof, which neither proof layer provides.
 NOTE
 } 2>&1 | tee "$output"
 
+note "done"
 printf '\nwritten to %s\n' "$output"
