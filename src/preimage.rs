@@ -48,32 +48,25 @@ pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetPara
     parameters
 }
 
-/// Which of the two preimage samplers a key uses.
-///
-/// The two are interchangeable: they sample from the same distribution
-/// over the same coset, and every test that holds for one holds for the
-/// other. What differs is when the orthogonalisation is done, and that
-/// is the whole of the difference the report measures.
+/// Which of the two preimage samplers a key uses. Both sample the same
+/// distribution over the same coset; they differ in when the short
+/// basis is orthogonalised.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sampling {
-    /// Reuse the orthogonalisation stored in the trapdoor. Each
-    /// preimage then costs a solve and a Klein sample. This is what
-    /// brings degree 64 within reach and is the default.
+    /// Reuse the orthogonalisation stored in the trapdoor, so a
+    /// preimage costs only a solve and a Klein sample. Default.
     #[default]
     StoredBasis,
-    /// Rebuild the short basis and orthogonalise it again on every
-    /// call, which is what the reused component does as it is shipped.
-    /// Kept so that the two can be compared in one execution and so
-    /// that the cost the report measures can be reproduced.
+    /// Rebuild and orthogonalise the short basis on every call, as the
+    /// reused qFALL sampler does. Kept for comparison.
     PerCall,
 }
 
 impl Sampling {
-    /// The two modes, in a fixed order, so that tests and the benchmark
-    /// cover both without repeating the list.
+    /// Both modes, so tests and the benchmark can cover each.
     pub const ALL: [Sampling; 2] = [Sampling::StoredBasis, Sampling::PerCall];
 
-    /// The name accepted on the command line and printed in reports.
+    /// The name used on the command line and in output.
     pub fn name(self) -> &'static str {
         match self {
             Sampling::StoredBasis => "stored",
@@ -81,8 +74,7 @@ impl Sampling {
         }
     }
 
-    /// Parses a command-line value. Returns `None` for anything else,
-    /// so the caller can report the accepted values itself.
+    /// Parses a command-line value; `None` if it is not a mode.
     pub fn parse(value: &str) -> Option<Sampling> {
         match value {
             "stored" | "stored-basis" | "fast" => Some(Sampling::StoredBasis),
@@ -101,13 +93,10 @@ impl std::fmt::Display for Sampling {
 /// A trapdoor together with everything derived from it that does not
 /// depend on the target.
 ///
-/// The derived values are held whichever mode the sampler is in, for
-/// one reason: `key_gen` checks the smoothing condition against the
-/// orthogonalised basis, and that check must not be skipped because a
-/// mode happens not to need the basis afterwards. The per-call mode
-/// therefore also pays one orthogonalisation at key generation, and
-/// then pays another on every call. What the two modes differ in is the
-/// per-session cost, which is where the difference lies.
+/// Both modes keep the derived values, because `key_gen` checks the
+/// smoothing bound against the orthogonalised basis and that check is
+/// not skipped for either mode. So per-call also pays one
+/// orthogonalisation at key generation, then another on every call.
 pub struct Trapdoor {
     pub r: MatPolyOverZ,
     pub e: MatPolyOverZ,
@@ -118,9 +107,8 @@ pub struct Trapdoor {
 }
 
 impl Trapdoor {
-    /// The public matrix this trapdoor belongs to. The per-call sampler
-    /// needs it, because the reused entry point takes `A` alongside the
-    /// trapdoor rather than deriving it.
+    /// The public matrix this trapdoor belongs to. The reused sampler
+    /// takes `A` alongside the trapdoor, so the per-call mode needs it.
     pub fn public_matrix(&self) -> &MatPolynomialRingZq {
         &self.a
     }
@@ -314,19 +302,12 @@ impl Sampler {
         squared.sqrt() * smoothing
     }
 
-    /// Reports whether this sampler's width satisfies the smoothing
-    /// condition for the given trapdoor.
+    /// Whether this sampler's width meets the smoothing condition for
+    /// the given trapdoor. `key_gen` refuses a key that fails it.
     ///
-    /// Below that width the sampler still returns, every output still
-    /// solves `A s = t`, and every output still passes the norm bound;
-    /// what changes is that the output distribution starts to depend on
-    /// the secret basis. No correctness test can see this, which is why
-    /// the condition is evaluated here rather than recorded as a number
-    /// in a comment. `key_gen` refuses a key that fails it.
-    ///
-    /// This walks the whole orthogonalised basis, so it costs a
-    /// fraction of the orthogonalisation it is checking and is paid
-    /// once per key.
+    /// Below that width the sampler still returns and every output
+    /// still solves `A s = t` within the norm bound; only the output
+    /// distribution changes, so no correctness test can see it.
     pub fn width_meets_smoothing(&self, trapdoor: &Trapdoor) -> bool {
         match f64::try_from(&self.psf.s) {
             Ok(width) => width >= self.least_width(trapdoor),
@@ -363,10 +344,8 @@ mod tests {
         )
     }
 
-    /// Every claim made about the sampler is made about both modes, so
-    /// the tests below iterate over `Sampling::ALL` rather than naming
-    /// one. A mode that passed only because it is the default would not
-    /// be an alternative to anything.
+    /// The tests below iterate over `Sampling::ALL`, so both modes are
+    /// covered rather than just the default.
     #[test]
     fn a_sample_solves_the_equation_and_respects_the_bound() {
         for sampling in Sampling::ALL {
@@ -382,8 +361,7 @@ mod tests {
     }
 
     /// Repeated calls under one trapdoor must keep working and must not
-    /// repeat themselves. For the stored mode this also exercises the
-    /// reuse of the cached orthogonalisation.
+    /// repeat themselves.
     #[test]
     fn repeated_samples_under_one_trapdoor_differ() {
         for sampling in Sampling::ALL {
@@ -478,11 +456,8 @@ mod tests {
         );
     }
 
-    /// The reused domain check is an upper bound only: it accepts the
-    /// zero vector. The relations of the construction ask for
-    /// `0 < ||s||`, so that half has to be checked separately, and
-    /// every caller of `check_domain` pairs it with `is_non_zero`.
-    /// Report: Step 2 and Step 3 of the issuing protocol.
+    /// The reused domain check is an upper bound only and accepts zero,
+    /// so callers pair it with `is_non_zero` for the `0 < ||s||` half.
     #[test]
     fn the_reused_bound_check_accepts_a_zero_preimage() {
         let sampler = toy_sampler(1);

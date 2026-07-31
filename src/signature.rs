@@ -50,10 +50,9 @@ pub fn verify<F: PublicFunction>(
     signature: &Signature<F>,
 ) -> bool {
     let degree = public_key.function.modulus().get_degree();
-    // Dimensions come first. The reused products assert their shapes,
-    // so an ill-formed input would stop the program rather than produce
-    // the rejection the report's Verify asks for. The same ordering
-    // argument applies to the norm bounds below, which f_a asserts.
+    // Dimensions first, then the norm bounds: the reused products
+    // assert both, so an unchecked input would stop the program instead
+    // of being rejected.
     if !has_layout(public_key, message, &signature.randomness, &signature.preimage, degree) {
         return false;
     }
@@ -207,9 +206,8 @@ pub fn relation_holds(
                     .commit(message, &witness.randomness)
 }
 
-/// The shapes that the reused matrix products assert. Both verification
-/// paths check them before they compute anything, so an ill-formed
-/// input from a malicious signer or verifier is rejected rather than
+/// The shapes the reused matrix products assert. Both verification
+/// paths check these first, so a malformed input is rejected instead of
 /// stopping the program.
 fn has_layout<F: PublicFunction>(
     public_key: &PublicKey<F>,

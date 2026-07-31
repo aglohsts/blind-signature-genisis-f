@@ -70,7 +70,7 @@ fn sign_and_report(
     text: &str,
 ) {
     let (message, bits) = encode(text);
-    println!("  hashed into the message space : {bits}");
+    println!("  message as bits          {bits}");
 
     let started = Instant::now();
     let (request, state) = match user_request(public_key, &message, &FiatShamirProvider) {
@@ -78,7 +78,7 @@ fn sign_and_report(
         Err(_) => unreachable!("the Fiat-Shamir prover cannot fail"),
     };
     println!(
-        "  1  user   -> signer  commitment and pi_com    {:>8.2} ms",
+        "  Step 1  user -> signer   sends c and the proof      {:>8.2} ms",
         started.elapsed().as_secs_f64() * 1000.0
     );
 
@@ -86,23 +86,26 @@ fn sign_and_report(
     let response = match signer_respond(public_key, secret_key, &request, &FiatShamirProvider) {
         Ok(response) => response,
         Err(reason) => {
-            println!("  2  the signer aborted: {reason:?}");
+            println!("  Step 2  the signer refused to answer: {reason:?}");
             return;
         }
     };
     println!(
-        "  2  signer -> user    mu, xi and a preimage    {:>8.2} ms",
+        "  Step 2  signer -> user   sends mu, xi and s         {:>8.2} ms",
         started.elapsed().as_secs_f64() * 1000.0
     );
-    println!("       mu = {}, xi = {}", response.function_input, response.function_randomness);
+    println!(
+        "          mu = {}, xi = {}",
+        response.function_input, response.function_randomness
+    );
 
     let started = Instant::now();
     let accepted = user_check(public_key, &state, &response);
     println!(
-        "  3  user checks the response          {:>16}",
-        if accepted { "ok" } else { "REJECTED" }
+        "  Step 3  user checks it   {:>26}  {:>8.2} ms",
+        if accepted { "accepted" } else { "REJECTED" },
+        started.elapsed().as_secs_f64() * 1000.0
     );
-    println!("       took {:.2} ms", started.elapsed().as_secs_f64() * 1000.0);
     if !accepted {
         return;
     }
@@ -111,21 +114,20 @@ fn sign_and_report(
     let started = Instant::now();
     let valid = verify(public_key, &message, &signature);
     println!(
-        "  4  verify the signature              {:>16}",
-        if valid { "ACCEPT" } else { "REJECT" }
+        "  Step 4  anyone verifies  {:>26}  {:>8.2} ms",
+        if valid { "ACCEPTED" } else { "REJECTED" },
+        started.elapsed().as_secs_f64() * 1000.0
     );
-    println!("       took {:.2} ms", started.elapsed().as_secs_f64() * 1000.0);
 
-    // The same signature against a different message must fail. This is
-    // the check that makes the signature about this message and not
-    // just well-formed.
+    // The same signature against a different message must fail, or the
+    // signature would say nothing about which message was signed.
     let (other, _) = encode(&format!("{text} "));
     println!(
-        "     the same signature for \"{text} \"    {:>16}",
+        "          same signature, message \"{text} \" -> {}",
         if verify(public_key, &other, &signature) {
-            "ACCEPT (wrong!)"
+            "ACCEPTED (this is a bug)"
         } else {
-            "REJECT (correct)"
+            "rejected, as it should be"
         }
     );
 }
@@ -168,18 +170,39 @@ fn main() {
         }
     };
 
-    println!("== blind-sig, interactive ==");
-    println!("ring R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank 1, message space {MESSAGE_BITS} bits");
-    println!("toy parameters: quick enough to be interactive, and not secure");
-    println!("the commitment proof is the native one; the signature carries its witness");
+    println!("blind-sig: a lattice-based blind signature");
+    println!();
+    println!("A blind signature lets a signer sign a message without seeing it.");
+    println!("The signer cannot later tell which signature came from which of its");
+    println!("own signing sessions. This program runs one signing session at a");
+    println!("time and prints the four steps it goes through:");
+    println!();
+    println!("  Step 1  The user hides the message inside a commitment c, and");
+    println!("          proves it knows how to open c without revealing anything.");
+    println!("  Step 2  The signer checks that proof, then picks two random values");
+    println!("          mu and xi and uses its secret trapdoor to find a short");
+    println!("          vector s solving  A s = f(kappa, mu, xi) + c.");
+    println!("          The signer never sees the message.");
+    println!("  Step 3  The user checks that s really solves that equation and is");
+    println!("          short enough, in case the signer cheated.");
+    println!("  Step 4  The user turns what it received into a signature, and");
+    println!("          anyone can verify it against the message.");
+    println!();
+    println!("Settings for this run:");
+    println!("  ring          R_q = Z_{Q_MOD}[X]/(X^{D} + 1), module rank 1");
+    println!("  message space {MESSAGE_BITS} bits, so your text is hashed down to fit");
+    println!("  security      none: these are toy sizes, chosen to run fast");
+    println!("  signature     carries its values in the open, so this demo gives");
+    println!("                no blindness; the LaZer tests cover the hidden form");
     match sampling {
         Sampling::StoredBasis => println!(
-            "sampler: stored  (the short basis is orthogonalised once, at key generation)\n"
+            "  sampler       stored: the short basis is prepared once, at key setup"
         ),
         Sampling::PerCall => println!(
-            "sampler: per-call  (the short basis is orthogonalised again on every signature)\n"
+            "  sampler       per-call: the short basis is prepared again every time"
         ),
     }
+    println!();
 
     let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
@@ -209,10 +232,11 @@ fn main() {
     let started = Instant::now();
     let (public_key, secret_key) = key_gen(function, sampler, parameters);
     println!(
-        "key generation                         {:>8.2} ms",
+        "Key setup (once)         {:>26}  {:>8.2} ms",
+        format!("kappa = {}", public_key.function_key),
         started.elapsed().as_secs_f64() * 1000.0
     );
-    println!("the function key kappa = {}\n", public_key.function_key);
+    println!();
 
     if !arguments.is_empty() {
         for text in &arguments {
@@ -224,8 +248,8 @@ fn main() {
     }
 
     println!("Type a message and press enter. An empty line quits.");
-    println!("Signing the same message twice shows a different transcript,");
-    println!("which is the freshness that blindness rests on.\n");
+    println!("Sign the same message twice: the values differ each time, because");
+    println!("fresh randomness is used. That freshness is what blindness needs.\n");
 
     let stdin = io::stdin();
     loop {

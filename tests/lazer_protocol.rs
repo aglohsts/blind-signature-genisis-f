@@ -30,13 +30,10 @@ const Q_MOD: u64 = 288_230_376_151_713_349;
 const COM_SEED: [u8; 32] = [7; 32];
 const SIG_SEED: [u8; 32] = [11; 32];
 
-/// The profile key uses the stored-basis sampler, and only that one.
-/// `Sampling::PerCall` is the reused sampler as it is shipped, and it is
-/// what makes degree 64 unreachable: it orthogonalises the short basis
-/// again for every preimage, so one issuing session would cost what the
-/// whole key costs here. The choice is asserted rather than assumed, so
-/// that the constraint of "Making the Two Components Meet" is recorded
-/// as an executable statement and not only as prose.
+/// The profile key uses the stored-basis sampler. `Sampling::PerCall`
+/// is not usable at degree 64: it orthogonalises the short basis again
+/// for every preimage, so one session would cost what the whole key
+/// costs here. The choice is asserted rather than assumed.
 fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
     let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 8),

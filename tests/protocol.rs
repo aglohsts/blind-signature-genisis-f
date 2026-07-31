@@ -20,10 +20,8 @@ fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
     keys_with(separator, Sampling::default())
 }
 
-/// The protocol is run under both preimage samplers. They are meant to
-/// be interchangeable, so every claim about an honest run is asserted
-/// for each; a mode that worked only because it is the default would
-/// not be an alternative to the other.
+/// The protocol is run under both preimage samplers, so every claim
+/// about an honest run is asserted for each.
 fn keys_with(separator: &str, sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
     let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
@@ -92,9 +90,8 @@ fn ten_honest_runs_verify_under_one_key() {
     }
 }
 
-/// The signatures the two samplers produce are accepted by the same
-/// verifier, under the same public key, with no knowledge of which
-/// sampler made them. This is what "interchangeable" has to mean.
+/// A signature made under one sampler verifies under a key using the
+/// other, which is what interchangeable means here.
 #[test]
 fn either_sampler_produces_signatures_the_other_key_verifies() {
     let (stored_key, stored_secret) = keys_with("swap", Sampling::StoredBasis);

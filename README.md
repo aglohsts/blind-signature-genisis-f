@@ -193,7 +193,7 @@ Gaussian width, norm bound, and the modulus the proof system then needs —
 is reported by:
 
 ```sh
-cargo run --release --bin calibrate -- 64 288230376151713349 8
+cargo run --release --bin parameters -- 64 288230376151713349 256
 ```
 
 Without the trailing base it sweeps every base, which is only affordable
@@ -309,7 +309,7 @@ src/lazer_ffi.rs               the safe boundary to the two LaZer profiles
 src/util.rs                    the two norms used by every bound check
 src/main.rs                    the interactive demo
 src/bin/bench.rs               step timings and size estimates
-src/bin/calibrate.rs           derives the width, bound and modulus chain
+src/bin/parameters.rs          the width, bound and modulus a base implies
 lazer/                         pinned revision, patches, C shims, and profiles
 scripts/build-lazer.sh         builds the pinned LaZer static libraries
 scripts/evidence.sh            runs everything and writes one log

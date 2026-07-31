@@ -30,10 +30,9 @@ pub struct Response<F: PublicFunction> {
     pub preimage: MatPolyOverZ,
 }
 
-/// Why the signer produced no response. The three cases are the abort
-/// conditions of Step 2 and they are not interchangeable: the first is
-/// a decision about the user's request, the other two are failures of
-/// the signer's own sampler.
+/// Why the signer produced no response. These are the abort conditions
+/// of Step 2, kept apart because the first is about the user's request
+/// and the other two are failures of the signer's own sampler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerAbort {
     /// `Verify_com` rejected the proof that came with the request.
@@ -72,8 +71,7 @@ where
 }
 
 /// Step 2: the signer verifies the proof, then samples mu and xi and a
-/// short preimage for the target f(kappa, mu, xi) + c. The three abort
-/// conditions of the report are returned as distinct reasons.
+/// short preimage for the target f(kappa, mu, xi) + c.
 pub fn signer_respond<F, P>(
     public_key: &PublicKey<F>,
     secret_key: &SecretKey,
@@ -220,11 +218,9 @@ mod tests {
         assert!(!user_check(&public_key, &state, &response));
     }
 
-    /// Step 3 asks for `0 < ||s||`, and the reused bound check does not
-    /// supply the left half: it accepts the zero vector. The equation
-    /// fails here as well, so this is a regression guard on the extra
-    /// check rather than an isolation of it; `preimage.rs` isolates the
-    /// gap in the reused component itself.
+    /// Step 3 asks for `0 < ||s||`. The equation fails here too, so this
+    /// guards the extra check rather than isolating it; `preimage.rs`
+    /// isolates the gap in the reused component.
     #[test]
     fn a_zero_preimage_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();

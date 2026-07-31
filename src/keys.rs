@@ -48,15 +48,14 @@ pub fn key_gen<F: PublicFunction>(
     );
     // This is where the short basis is orthogonalised, once per key.
     let (a, trapdoor) = sampler.trap_gen();
-    // The smoothing condition is checked here rather than trusted from
-    // a comment. A width below it leaves every observable behaviour
-    // intact and only shifts the output distribution towards the secret
-    // basis, so nothing later in the protocol can notice.
+    // A width below the smoothing bound leaves every observable
+    // behaviour intact and only shifts the output distribution towards
+    // the secret basis, so it has to be checked here.
     assert!(
         sampler.width_meets_smoothing(&trapdoor),
         "the Gaussian width is below the smoothing bound of this basis: \
          the width is {}, the basis needs at least {:.1}. Run \
-         `cargo run --release --bin calibrate` at this degree and base.",
+         `cargo run --release --bin parameters` at this degree and base.",
         sampler.width(),
         sampler.least_width(&trapdoor),
     );

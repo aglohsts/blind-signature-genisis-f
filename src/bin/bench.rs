@@ -169,9 +169,8 @@ fn main() {
     let signature_bytes = response_bytes + packed_bytes(ELL_R * D, randomness_bits);
 
     println!("\nthe two preimage samplers (mean, ms):");
-    println!("  the choice reaches key generation and the signer response only;");
-    println!("  every other step is identical, and both produce signatures the");
-    println!("  same verifier accepts.");
+    println!("  only key generation and the signer response differ; every other");
+    println!("  step is identical.");
     println!(
         "\n  {:<10} {:>14} {:>16} {:>18}",
         "sampler", "key gen", "signer response", "one key + 20"
@@ -184,18 +183,9 @@ fn main() {
             keygen + respond * SESSIONS,
         );
     }
-    println!(
-        "\n  Both modes orthogonalise the short basis once at key generation,"
-    );
-    println!(
-        "  because KeyGen checks the smoothing condition against it. The"
-    );
-    println!(
-        "  per-call mode then orthogonalises it again for every preimage,"
-    );
-    println!(
-        "  which is what the reused component does as it is shipped."
-    );
+    println!("\n  Both modes orthogonalise the basis once at key generation,");
+    println!("  because KeyGen checks the smoothing bound against it. per-call");
+    println!("  then does it again for every preimage.");
 
     println!("\nsize estimates (packed coefficients, bytes):");
     println!("  request (c, pi_com)     : {}", commitment_bytes + proof_bytes);

@@ -76,7 +76,7 @@ implies at degree 64, the modulus the proof system would then need, and
 how long the one-off orthogonalisation takes.
 NOTE
     printf '\n'
-    cargo run --release --quiet --bin calibrate -- 8 288230376151713349 2>&1 \
+    cargo run --release --quiet --bin parameters -- 8 288230376151713349 2>&1 \
         | grep -v '^WARNING: A completely filled' || true
 
     section "3. Test suite, without LaZer"
