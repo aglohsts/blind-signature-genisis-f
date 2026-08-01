@@ -7,7 +7,7 @@
 #include "params_d64.h"
 #include "params_sig_d64.h"
 
-/* Reports: "LaZer Integration" and "The Final-Signature Proof". */
+// report: "LaZer Integration" and "The Final-Signature Proof"
 
 #define BS_LAZER_D64_PADDED_COEFFS                                           \
   (BS_LAZER_D64_PADDED_COLUMNS * BS_LAZER_D64_DEGREE)

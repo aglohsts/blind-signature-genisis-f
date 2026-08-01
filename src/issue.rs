@@ -1,6 +1,6 @@
-//! The one-round issuing protocol.
-//! Report: "Issuing protocol" of the construction, implemented as
-//! described in "The Commitment and the Protocol Layer".
+// report: "Issuing protocol", implemented as described in
+// "The Commitment and the Protocol Layer"
+// The one-round issuing protocol.
 
 use crate::commitment_proof::CommitmentProofProvider;
 use crate::keys::{PublicKey, SecretKey};
@@ -9,42 +9,40 @@ use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 
-/// The request sent by the user. The proof type is fixed by the
-/// commitment-proof provider in use.
+// The request sent by the user. The proof type is fixed by the
+// commitment-proof provider in use.
 pub struct Request<P> {
     pub commitment: MatPolynomialRingZq,
     pub proof: P,
 }
 
-/// What the user keeps between the two messages.
+// What the user keeps between the two messages.
 pub struct UserState {
     pub message: MatPolyOverZ,
     pub randomness: MatPolyOverZ,
     pub commitment: MatPolynomialRingZq,
 }
 
-/// What the signer sends back.
+// What the signer sends back.
 pub struct Response<F: PublicFunction> {
     pub function_input: F::Input,
     pub function_randomness: F::Randomness,
     pub preimage: MatPolyOverZ,
 }
 
-/// Why the signer produced no response. These are the abort conditions
-/// of Step 2, kept apart because the first is about the user's request
-/// and the other two are failures of the signer's own sampler.
+// Why the signer produced no response. These are the abort conditions
+// of Step 2, kept apart because the first is about the user's request
+// and the other two are failures of the signer's own sampler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerAbort {
-    /// `Verify_com` rejected the proof that came with the request.
+    // `Verify_com` rejected the proof that came with the request.
     ProofRejected,
-    /// The sampled preimage missed the norm bound `B_s`.
+    // The sampled preimage missed the norm bound `B_s`.
     PreimageOutsideBound,
-    /// The sampled preimage was zero, which `R_sig` excludes.
+    // The sampled preimage was zero, which `R_sig` excludes.
     ZeroPreimage,
 }
 
-/// Step 1: the user samples r, commits, proves knowledge of the
-/// opening, and keeps its state.
 pub fn user_request<F, P>(
     public_key: &PublicKey<F>,
     message: &MatPolyOverZ,
@@ -53,7 +51,7 @@ pub fn user_request<F, P>(
 where
     F: PublicFunction,
     P: CommitmentProofProvider<F>,
-{
+{ // step 1: the user samples r, commits, proves knowledge of the opening, and keeps its state
     let degree = public_key.function.modulus().get_degree();
     assert!(
         norm_eucl_sqrd(message, degree) <= public_key.message_bound_sqrd,
@@ -70,8 +68,6 @@ where
     Ok((Request { commitment, proof }, state))
 }
 
-/// Step 2: the signer verifies the proof, then samples mu and xi and a
-/// short preimage for the target f(kappa, mu, xi) + c.
 pub fn signer_respond<F, P>(
     public_key: &PublicKey<F>,
     secret_key: &SecretKey,
@@ -81,7 +77,7 @@ pub fn signer_respond<F, P>(
 where
     F: PublicFunction,
     P: CommitmentProofProvider<F>,
-{
+{ // step 2: the signer verifies the proof, then samples mu and xi and a short preimage for `f(kappa, mu, xi) + c`
     if !provider.verify(public_key, &request.commitment, &request.proof) {
         return Err(SignerAbort::ProofRejected);
     }
@@ -108,12 +104,11 @@ where
     })
 }
 
-/// Step 3: the user checks the response.
 pub fn user_check<F: PublicFunction>(
     public_key: &PublicKey<F>,
     state: &UserState,
     response: &Response<F>,
-) -> bool {
+) -> bool { // step 3: the user checks the response
     // The norm bound comes first because the reused f_a asserts it.
     // `check_domain` is an upper bound only, so `is_non_zero` supplies
     // the `0 < ||s||` half of the report's Step 3 check.
@@ -165,8 +160,8 @@ mod tests {
         assert!(user_check(&public_key, &state, &response));
     }
 
-    /// After an honest run the user holds a witness for the final
-    /// relation A s = f(kappa, mu, xi) + B_1 m + B_2 r.
+    // after an honest run the user holds a witness for the final
+    // relation A s = f(kappa, mu, xi) + B_1 m + B_2 r
     #[test]
     fn finalisation_identity_holds() {
         let (public_key, secret_key, message) = setup();
@@ -218,9 +213,9 @@ mod tests {
         assert!(!user_check(&public_key, &state, &response));
     }
 
-    /// Step 3 asks for `0 < ||s||`. The equation fails here too, so this
-    /// guards the extra check rather than isolating it; `preimage.rs`
-    /// isolates the gap in the reused component.
+    // step 3 asks for `0 < ||s||`. The equation fails here too, so this
+    // guards the extra check rather than isolating it; `preimage.rs`
+    // isolates the gap in the reused component.
     #[test]
     fn a_zero_preimage_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();

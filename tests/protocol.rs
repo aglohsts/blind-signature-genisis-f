@@ -1,5 +1,5 @@
-//! Integration tests: the full protocol through the public interface.
-//! Report: "Evaluation", functional correctness.
+// report: "Evaluation", functional correctness
+// Integration tests: the full protocol through the public interface.
 
 use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::commitment_proof::FiatShamirProvider;
@@ -20,8 +20,8 @@ fn keys(separator: &str) -> (PublicKey<HashToRing>, SecretKey) {
     keys_with(separator, Sampling::default())
 }
 
-/// The protocol is run under both preimage samplers, so every claim
-/// about an honest run is asserted for each.
+// The protocol is run under both preimage samplers, so every claim
+// about an honest run is asserted for each.
 fn keys_with(separator: &str, sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
     let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 1),
@@ -90,8 +90,8 @@ fn ten_honest_runs_verify_under_one_key() {
     }
 }
 
-/// A signature made under one sampler verifies under a key using the
-/// other, which is what interchangeable means here.
+// a signature made under one sampler verifies under a key using the
+// other, which is what interchangeable means here
 #[test]
 fn either_sampler_produces_signatures_the_other_key_verifies() {
     let (stored_key, stored_secret) = keys_with("swap", Sampling::StoredBasis);
@@ -155,8 +155,8 @@ fn an_invalid_proof_makes_the_signer_abort() {
     );
 }
 
-/// Two runs on the same message use fresh randomness, so the requests
-/// differ. This is the behaviour that blindness relies on.
+// two runs on the same message use fresh randomness, so the requests
+// differ; this is the behaviour that blindness relies on
 #[test]
 fn two_runs_on_one_message_send_different_requests() {
     let (public_key, _) = keys("fresh");
@@ -166,12 +166,12 @@ fn two_runs_on_one_message_send_different_requests() {
     assert_ne!(first.commitment, second.commitment);
 }
 
-/// The protocol layer is generic over the public function, so the same
-/// code has to carry a function whose key and randomness spaces are
-/// singletons. This is the fixed-function specialisation of the
-/// framework, and running it through the unchanged protocol is what
-/// makes the claim of Section "Scope and Design Goals" concrete: the
-/// scheme is not written against one $f$.
+// report: "Scope and Design Goals"
+// The protocol layer is generic over the public function, so the same
+// code has to carry a function whose key and randomness spaces are
+// singletons. This is the fixed-function specialisation of the
+// framework, and running it through the unchanged protocol is what
+// makes that claim concrete: the scheme is not written against one f.
 #[test]
 fn the_protocol_carries_the_fixed_function_too() {
     let sampler = Sampler::new(

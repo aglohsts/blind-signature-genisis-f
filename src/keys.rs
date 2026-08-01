@@ -1,6 +1,6 @@
-//! Key generation: `pk = (A, B_1, B_2, kappa)` and `sk = T_A`.
-//! Report: "Key generation" of the construction, implemented as
-//! described in "The Commitment and the Protocol Layer".
+// report: "Key generation", implemented as described in
+// "The Commitment and the Protocol Layer"
+// Key generation: `pk = (A, B_1, B_2, kappa)` and `sk = T_A`.
 
 use crate::commitment::CommitmentKey;
 use crate::preimage::{Sampler, Trapdoor};
@@ -9,7 +9,7 @@ use crate::public_function::PublicFunction;
 use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 
-/// The parameters that key generation needs beyond the function.
+// The parameters that key generation needs beyond the function.
 pub struct Parameters {
     pub ell_m: i64,
     pub ell_r: i64,
@@ -18,7 +18,7 @@ pub struct Parameters {
     pub proof: ProofParameters,
 }
 
-/// The public key of the scheme.
+// The public key of the scheme.
 pub struct PublicKey<F: PublicFunction> {
     pub a: MatPolynomialRingZq,
     pub commitment_key: CommitmentKey,
@@ -29,18 +29,17 @@ pub struct PublicKey<F: PublicFunction> {
     pub proof_parameters: ProofParameters,
 }
 
-/// The secret key: the trapdoor for `A`, with the orthogonalised
-/// short basis that sampling reuses.
+// The secret key: the trapdoor for `A`, with the orthogonalised
+// short basis that sampling reuses.
 pub struct SecretKey {
     pub trapdoor: Trapdoor,
 }
 
-/// Runs key generation.
 pub fn key_gen<F: PublicFunction>(
     function: F,
     sampler: Sampler,
     parameters: Parameters,
-) -> (PublicKey<F>, SecretKey) {
+) -> (PublicKey<F>, SecretKey) { // runs key generation
     assert_eq!(
         sampler.modulus(),
         function.modulus(),
@@ -136,8 +135,8 @@ pub mod tests {
         assert_eq!(&public_key.a.get_mod(), public_key.function.modulus());
     }
 
-    /// The function key is fixed by the public key, so it stays the
-    /// same for every session.
+    // the function key is fixed by the public key, so it stays the
+    // same for every session
     #[test]
     fn function_key_is_inside_its_space() {
         let (public_key, _) = setup();
@@ -147,8 +146,6 @@ pub mod tests {
         assert_eq!(1, value.get_num_rows());
     }
 
-    /// The trapdoor produces preimages that satisfy the relation and
-    /// the norm bound of the sampler.
     #[test]
     fn trapdoor_samples_valid_preimages() {
         let (public_key, secret_key) = setup();
@@ -158,9 +155,8 @@ pub mod tests {
         assert!(public_key.sampler.check_domain(&preimage));
     }
 
-    /// A width below the smoothing bound of its own basis is refused,
-    /// so a key whose sampler leaks towards the trapdoor cannot be
-    /// built. Report: "A Parameter That Was Silently Wrong".
+    // report: "A Parameter That Was Silently Wrong"
+    // a key whose sampler leaks towards the trapdoor cannot be built
     #[test]
     #[should_panic(expected = "below the smoothing bound")]
     fn a_width_below_the_smoothing_bound_is_rejected() {

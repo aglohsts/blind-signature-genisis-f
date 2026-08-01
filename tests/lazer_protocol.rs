@@ -1,11 +1,11 @@
-//! Integration tests for the LaZer-backed proof layer.
-//! Report: "LaZer Integration" and "The Final-Signature Proof".
-//!
-//! These run only with the `lazer-ffi` feature, which needs the pinned
-//! LaZer libraries; see `lazer/README.md`. Key generation at `d = 64`
-//! dominates the cost of the whole suite, so the checks that need a
-//! profile key share one, and the run below is written as a single
-//! sequence through the protocol.
+// report: "LaZer Integration" and "The Final-Signature Proof"
+// Integration tests for the LaZer-backed proof layer.
+//
+// These run only with the `lazer-ffi` feature, which needs the pinned
+// LaZer libraries; see `lazer/README.md`. Key generation at `d = 64`
+// dominates the cost of the whole suite, so the checks that need a
+// profile key share one, and the run below is written as a single
+// sequence through the protocol.
 
 #![cfg(feature = "lazer-ffi")]
 
@@ -30,10 +30,10 @@ const Q_MOD: u64 = 288_230_376_151_713_349;
 const COM_SEED: [u8; 32] = [7; 32];
 const SIG_SEED: [u8; 32] = [11; 32];
 
-/// The profile key uses the stored-basis sampler. `Sampling::PerCall`
-/// is not usable at degree 64: it orthogonalises the short basis again
-/// for every preimage, so one session would cost what the whole key
-/// costs here. The choice is asserted rather than assumed.
+// The profile key uses the stored-basis sampler. `Sampling::PerCall`
+// is not usable at degree 64: it orthogonalises the short basis again
+// for every preimage, so one session would cost what the whole key
+// costs here. The choice is asserted rather than assumed.
 fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
     let sampler = Sampler::with_sampling(
         gadget_parameters(D, Q_MOD, 8),
@@ -61,8 +61,8 @@ fn profile_keys() -> (PublicKey<ModuleLweEncoding>, SecretKey) {
     key_gen(function, sampler, parameters)
 }
 
-/// A sparse message that stays inside the profile bound
-/// `||m||^2 <= 16`. A dense binary message over `d = 64` would not.
+// A sparse message that stays inside the profile bound
+// `||m||^2 <= 16`. A dense binary message over `d = 64` would not.
 fn profile_message(first: i64, second: i64) -> MatPolyOverZ {
     let mut message = MatPolyOverZ::new(2, 1);
     let mut top = PolyOverZ::default();
@@ -75,7 +75,7 @@ fn profile_message(first: i64, second: i64) -> MatPolyOverZ {
     message
 }
 
-/// Writes one stage timing to stderr, where `--nocapture` shows it.
+// Writes one stage timing to stderr, where `--nocapture` shows it.
 fn report(stage: &str, started: Instant) {
     eprintln!("    {stage:<26}: {:>8.2} s", started.elapsed().as_secs_f64());
 }
@@ -88,14 +88,14 @@ fn the_profile_sizes_are_the_generated_ones() {
     assert!(!lazer_ffi::version().expect("LaZer version").is_empty());
 }
 
-/// One pass through the protocol with both proofs produced by LaZer.
-/// The stages are separated by comments rather than by test functions,
-/// because a profile key costs more to generate than every check here
-/// costs to run.
-///
-/// Each stage reports its own elapsed time. The times are hidden unless
-/// the suite runs with `--nocapture`, and they are the measurements the
-/// evaluation reports, so they should be read from a release build.
+// One pass through the protocol with both proofs produced by LaZer.
+// The stages are separated by comments rather than by test functions,
+// because a profile key costs more to generate than every check here
+// costs to run.
+//
+// Each stage reports its own elapsed time. The times are hidden unless
+// the suite runs with `--nocapture`, and they are the measurements the
+// evaluation reports, so they should be read from a release build.
 #[test]
 fn the_lazer_proof_layer_carries_the_protocol() {
     let started = Instant::now();
@@ -194,9 +194,9 @@ fn the_lazer_proof_layer_carries_the_protocol() {
     );
 }
 
-/// A public key outside the generated profile is rejected before any
-/// call into LaZer. The toy ring is cheap, so this needs no `d = 64`
-/// key generation.
+// A public key outside the generated profile is rejected before any
+// call into LaZer. The toy ring is cheap, so this needs no `d = 64`
+// key generation.
 #[test]
 fn a_public_key_outside_the_profile_is_rejected() {
     let sampler = Sampler::new(

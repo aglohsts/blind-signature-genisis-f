@@ -7,7 +7,7 @@
 #include "params_sig_d64.h"
 #include "shim_sig_statement.h"
 
-/* Report: "The Final-Signature Proof". */
+// report: "The Final-Signature Proof"
 
 #define BS_SIG_D64_Q 288230376151713349ULL
 
@@ -45,7 +45,7 @@ mod_inverse (uint64_t value)
   return result;
 }
 
-/* Accumulates one bounded block and checks its infinity bound. */
+// accumulates one bounded block and checks its infinity bound
 static int
 block_norm_sq (const int64_t *witness, size_t first, size_t count,
                int64_t bound_inf, uint64_t *norm_sq)

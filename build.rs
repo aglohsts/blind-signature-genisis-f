@@ -1,12 +1,11 @@
-// Report: "LaZer Integration".
+// report: "LaZer Integration"
 
 use std::{env, path::PathBuf};
 
-/// Resolves one of the LaZer directories to an absolute path. The
-/// linker search paths are passed to rustc verbatim, so a relative
-/// value here would be resolved against a working directory this
-/// script does not control.
-fn required_dir(name: &str) -> PathBuf {
+// The linker search paths are passed to rustc verbatim, so a relative
+// value here would be resolved against a working directory this
+// script does not control.
+fn required_dir(name: &str) -> PathBuf { // resolves one of the LaZer directories to an absolute path
     let value = env::var_os(name).unwrap_or_else(|| {
         panic!("{name} must point to the directory containing the LaZer library")
     });
@@ -21,9 +20,7 @@ fn required_dir(name: &str) -> PathBuf {
         .unwrap_or_else(|error| panic!("{} cannot be resolved: {error}", path.display()))
 }
 
-/// Fails with an actionable message rather than leaving a missing
-/// archive to the linker, which reports it without saying why.
-fn required_archive(dir: &PathBuf, file: &str, variable: &str) {
+fn required_archive(dir: &PathBuf, file: &str, variable: &str) { // fails with an actionable message rather than leaving a missing archive to the linker
     let path = dir.join(file);
     assert!(
         path.is_file(),
@@ -36,13 +33,12 @@ fn required_archive(dir: &PathBuf, file: &str, variable: &str) {
     );
 }
 
-/// Locates the GMP and MPFR that qFALL builds from source through
-/// gmp-mpfr-sys. LaZer links against the same two libraries, and a
-/// shared machine often has neither installed, so the linker is
-/// pointed at that copy when one exists. `OUT_DIR` is
-/// `target/<profile>/build/<crate>-<hash>/out`, so its grandparent
-/// holds every build directory of this profile.
-fn cargo_built_gmp_dir() -> Option<PathBuf> {
+// LaZer links against the same two libraries, and a shared machine
+// often has neither installed, so the linker is pointed at that copy
+// when one exists. `OUT_DIR` is
+// `target/<profile>/build/<crate>-<hash>/out`, so its grandparent
+// holds every build directory of this profile.
+fn cargo_built_gmp_dir() -> Option<PathBuf> { // locates the GMP and MPFR that qFALL builds through gmp-mpfr-sys
     let out_dir = PathBuf::from(env::var_os("OUT_DIR")?);
     let build_root = out_dir.parent()?.parent()?;
     for entry in std::fs::read_dir(build_root).ok()? {

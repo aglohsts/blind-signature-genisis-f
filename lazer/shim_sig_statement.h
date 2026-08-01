@@ -4,10 +4,10 @@
 #include "lazer.h"
 #include "shim.h"
 
-/* One exact l2 proof per bounded block: the preimage s, the function
- * randomness xi, and the commitment randomness r. This count is the
- * parameter Z of the generated profile, so it also moves the offset at
- * which LaZer stores the caller-supplied evaluation equations. */
+// one exact l2 proof per bounded block: the preimage s, the function
+// randomness xi, and the commitment randomness r. this count is the
+// parameter Z of the generated profile, so it also moves the offset at
+// which LaZer stores the caller-supplied evaluation equations.
 #define BS_SIG_D64_L2_PROOFS 3u
 #define BS_SIG_D64_EVAL_OFFSET                                              \
   (2u * (BS_LAZER_SIG_D64_DEGREE - 1u) + 512u                             \

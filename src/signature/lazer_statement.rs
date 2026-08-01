@@ -1,24 +1,20 @@
-//! The LaZer provider for the final-signature relation `R_sig`.
-//! Report: "The Proof Layer on LaZer".
-//!
-//! The relation
-//!
-//! ```text
-//! A s = f(kappa, mu, xi) + B_1 m + B_2 r
-//! ```
-//!
-//! is rewritten with the algebraic function
-//! `f(kappa, mu, xi) = kappa xi + G enc(mu)` as
-//!
-//! ```text
-//! A s - kappa xi - B_2 r - G enc(mu) - B_1 m = 0,
-//! ```
-//!
-//! which is linear in the hidden values. The bounded witness is the
-//! concatenation `(s, xi, r)`; `enc(mu)` is the binary witness; and the
-//! public message `m` moves into the constant offset. This is the step
-//! the hash-based function cannot take, because `H(sep|kappa|mu|xi)`
-//! is not linear in `mu` and `xi`.
+// report: "The Proof Layer on LaZer"
+// The LaZer provider for the final-signature relation `R_sig`.
+//
+// The relation
+//
+//     A s = f(kappa, mu, xi) + B_1 m + B_2 r
+//
+// is rewritten with the algebraic function
+// `f(kappa, mu, xi) = kappa xi + G enc(mu)` as
+//
+//     A s - kappa xi - B_2 r - G enc(mu) - B_1 m = 0,
+//
+// which is linear in the hidden values. The bounded witness is the
+// concatenation `(s, xi, r)`; `enc(mu)` is the binary witness; and the
+// public message `m` moves into the constant offset. This is the step
+// the hash-based function cannot take, because `H(sep|kappa|mu|xi)`
+// is not linear in `mu` and `xi`.
 
 use super::{
     FinalSignatureProofProvider, ModuleLweWitness, fits_ring_degree, relation_holds,
@@ -33,20 +29,20 @@ use qfall_math::rational::Q;
 use qfall_math::traits::{GetCoefficient, MatrixDimensions, MatrixGetEntry};
 use qfall_tools::utils::common_moduli::new_anticyclic;
 
-/// The public part of the coefficient-level statement.
+// The public part of the coefficient-level statement.
 pub(crate) struct Statement {
     pub(crate) linear: Vec<i64>,
     pub(crate) tag_matrix: Vec<i64>,
     pub(crate) offset: Vec<i64>,
 }
 
-/// The hidden part, split the way the profile expects it.
+// The hidden part, split the way the profile expects it.
 pub(crate) struct Witness {
     pub(crate) bounded: Vec<i64>,
     pub(crate) tag: Vec<i64>,
 }
 
-/// An encoded proof for the fixed LaZer final-signature profile.
+// An encoded proof for the fixed LaZer final-signature profile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LazerSignatureProof(Vec<u8>);
 
@@ -60,8 +56,8 @@ impl LazerSignatureProof {
     }
 }
 
-/// The fixed LaZer final-signature provider and its public-parameter
-/// seed.
+// The fixed LaZer final-signature provider and its public-parameter
+// seed.
 pub struct LazerSignatureProvider {
     seed: [u8; 32],
 }
@@ -133,11 +129,10 @@ impl FinalSignatureProofProvider<ModuleLweEncoding> for LazerSignatureProvider {
     }
 }
 
-/// Serialises `[A | -kappa | -B_2]`, `-G`, and `-B_1 m`.
 pub(crate) fn build_statement(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
-) -> Result<Statement, Error> {
+) -> Result<Statement, Error> { // serialises `[A | -kappa | -B_2]`, `-G`, and `-B_1 m`
     validate_layout(public_key, message)?;
 
     let mut linear = Vec::with_capacity(lazer_ffi::LINEAR_COEFFICIENTS);
@@ -160,8 +155,7 @@ pub(crate) fn build_statement(
     })
 }
 
-/// Serialises the bounded block `(s, xi, r)` and the binary `enc(mu)`.
-pub(crate) fn build_witness(witness: &ModuleLweWitness) -> Result<Witness, Error> {
+pub(crate) fn build_witness(witness: &ModuleLweWitness) -> Result<Witness, Error> { // serialises the bounded block `(s, xi, r)` and the binary `enc(mu)`
     validate_witness_layout(witness)?;
 
     let mut bounded = Vec::with_capacity(lazer_ffi::FINAL_WITNESS_COEFFICIENTS);
@@ -264,8 +258,8 @@ fn validate_witness_layout(witness: &ModuleLweWitness) -> Result<(), Error> {
     Ok(())
 }
 
-/// The generated profile fixes every norm bound, so a public key with
-/// looser bounds cannot use it.
+// The generated profile fixes every norm bound, so a public key with
+// looser bounds cannot use it.
 fn validate_bounds(public_key: &PublicKey<ModuleLweEncoding>) -> Result<(), Error> {
     if public_key.message_bound_sqrd > Z::from(lazer_ffi::PROFILE_MESSAGE_BOUND_SQ)
         || public_key.commitment_key.randomness_bound_sqrd()

@@ -4,18 +4,17 @@
 
 #include "params_sig_d64.h"
 
-/* Report: "The Final-Signature Proof".
- *
- * The statement is the coefficient-level form of
- *
- *     A s - kappa xi - B_2 r - G enc(mu) - B_1 m = 0,
- *
- * written as `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`.
- * One evaluation equation is emitted per coefficient of the ring
- * equation. Two further equations prove that the preimage is non-zero:
- * the first binds an unbounded variable h to the squared norm of s, and
- * the second forces h to have an inverse u.
- */
+// report: "The Final-Signature Proof"
+//
+// the statement is the coefficient-level form of
+//
+//     A s - kappa xi - B_2 r - G enc(mu) - B_1 m = 0,
+//
+// written as `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`.
+// one evaluation equation is emitted per coefficient of the ring
+// equation. two further equations prove that the preimage is non-zero:
+// the first binds an unbounded variable h to the squared norm of s, and
+// the second forces h to have an inverse u.
 
 #define BS_SIG_D64_Q 288230376151713349LL
 
@@ -78,7 +77,7 @@ set_identity_entry (polymat_t matrix, unsigned int row, unsigned int column)
   int_set_i64 (poly_get_coeff (entry, 0), 1);
 }
 
-/* Selects `rows` consecutive bounded columns starting at `first`. */
+// selects `rows` consecutive bounded columns starting at `first`
 static void
 set_selector (polymat_t matrix, unsigned int rows, unsigned int first)
 {

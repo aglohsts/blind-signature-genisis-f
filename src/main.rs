@@ -1,21 +1,21 @@
-//! An interactive run of the scheme. Type a message, watch the four
-//! protocol steps, and see the signature checked.
-//! Report: "Testing", the demo binary.
-//!
-//! The parameters are the toy ones, so this is quick enough to be
-//! interactive but gives no security. The LaZer proof layer is not used
-//! here; the commitment proof is the native Fiat--Shamir one and the
-//! signature is transparent, which is what lets the demo run on any
-//! platform. `tests/lazer_protocol.rs` exercises the proof layer.
-//!
-//! Messages given on the command line are signed in order and the
-//! program exits; with no arguments it reads them from the terminal.
-//!
-//! `--sampler=stored` or `--sampler=per-call` chooses which preimage
-//! sampler the key uses. The two are interchangeable and produce
-//! signatures the same verifier accepts; they differ in when the short
-//! basis is orthogonalised, which is what the timings below make
-//! visible.
+// report: "Testing", the demo binary
+// An interactive run of the scheme. Type a message, watch the four
+// protocol steps, and see the signature checked.
+//
+// The parameters are the toy ones, so this is quick enough to be
+// interactive but gives no security. The LaZer proof layer is not used
+// here; the commitment proof is the native Fiat--Shamir one and the
+// signature is transparent, which is what lets the demo run on any
+// platform. `tests/lazer_protocol.rs` exercises the proof layer.
+//
+// Messages given on the command line are signed in order and the
+// program exits; with no arguments it reads them from the terminal.
+//
+// `--sampler=stored` or `--sampler=per-call` chooses which preimage
+// sampler the key uses. The two are interchangeable and produce
+// signatures the same verifier accepts; they differ in when the short
+// basis is orthogonalised, which is what the timings below make
+// visible.
 
 use blind_sig::commitment_proof::FiatShamirProvider;
 use blind_sig::hash_to_ring::HashToRing;
@@ -35,16 +35,16 @@ const D: i64 = 8;
 const Q_MOD: u64 = 257;
 const ELL_M: i64 = 2;
 
-/// The message space holds `ELL_M * D` coefficients and the norm bound
-/// is 16, so a binary vector of that length always fits. That is two
-/// bytes, which is why real input is hashed down to it first: the
-/// message space of these toy parameters is smaller than any message
-/// worth signing.
+// The message space holds `ELL_M * D` coefficients and the norm bound
+// is 16, so a binary vector of that length always fits. That is two
+// bytes, which is why real input is hashed down to it first: the
+// message space of these toy parameters is smaller than any message
+// worth signing.
 const MESSAGE_BITS: i64 = ELL_M * D;
 
-/// Hashes text into the message space. Every coefficient is 0 or 1, so
-/// the squared norm is the number of ones and never exceeds the bound.
-fn encode(text: &str) -> (MatPolyOverZ, String) {
+// Every coefficient is 0 or 1, so the squared norm is the number of
+// ones and never exceeds the bound.
+fn encode(text: &str) -> (MatPolyOverZ, String) { // hashes text into the message space
     let bits = hash_to_mat_zq_sha256(text, MESSAGE_BITS, 1, 2)
         .get_representative_least_nonnegative_residue();
 
@@ -63,12 +63,11 @@ fn encode(text: &str) -> (MatPolyOverZ, String) {
     (message, shown)
 }
 
-/// Runs the four steps of the protocol on one message and reports each.
 fn sign_and_report(
     public_key: &PublicKey<HashToRing>,
     secret_key: &SecretKey,
     text: &str,
-) {
+) { // runs the four steps of the protocol on one message and reports each
     let (message, bits) = encode(text);
     println!("  message as bits          {bits}");
 
@@ -132,9 +131,8 @@ fn sign_and_report(
     );
 }
 
-/// Splits `--sampler=<mode>` out of the arguments. Everything else is
-/// returned in order and treated as a message.
-fn parse_arguments() -> Result<(Sampling, Vec<String>), String> {
+// Everything else is returned in order and treated as a message.
+fn parse_arguments() -> Result<(Sampling, Vec<String>), String> { // splits `--sampler=<mode>` out of the arguments
     let mut sampling = Sampling::default();
     let mut messages = Vec::new();
     let mut arguments = std::env::args().skip(1);

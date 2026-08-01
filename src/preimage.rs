@@ -1,18 +1,18 @@
-//! Preimage sampling with a stored orthogonalised basis.
-//! Report: "Making the Two Components Meet".
-//!
-//! The reused ring sampler rebuilds the short basis of the trapdoor on
-//! every call and orthogonalises it again. Building the basis is
-//! almost free; the orthogonalisation is the whole cost, and it grows
-//! with the ring degree until it is out of reach at the degree the
-//! proof system needs. The same library's non-ring sampler already
-//! stores the orthogonalised basis in the trapdoor, so this module
-//! does the same for the ring setting: the work that does not depend
-//! on the target is done once, at key generation.
-//!
-//! Nothing else changes. The trapdoor is still the gadget trapdoor of
-//! Micciancio and Peikert, `A` is still uniform, and the samples are
-//! still checked against the norm bound of the reused component.
+// report: "Making the Two Components Meet"
+// Preimage sampling with a stored orthogonalised basis.
+//
+// The reused ring sampler rebuilds the short basis of the trapdoor on
+// every call and orthogonalises it again. Building the basis is
+// almost free; the orthogonalisation is the whole cost, and it grows
+// with the ring degree until it is out of reach at the degree the
+// proof system needs. The same library's non-ring sampler already
+// stores the orthogonalised basis in the trapdoor, so this module
+// does the same for the ring setting: the work that does not depend
+// on the target is done once, at key generation.
+//
+// Nothing else changes. The trapdoor is still the gadget trapdoor of
+// Micciancio and Peikert, `A` is still uniform, and the samples are
+// still checked against the norm bound of the reused component.
 
 use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
@@ -28,14 +28,12 @@ use qfall_tools::sample::g_trapdoor::gadget_parameters::GadgetParametersRing;
 use qfall_tools::sample::g_trapdoor::short_basis_ring::gen_short_basis_for_trapdoor_ring;
 use qfall_tools::utils::rotation_matrix::rot_minus_matrix;
 
-/// Builds gadget parameters for a chosen base.
-///
-/// The default of the reused component is base 2, which makes the
-/// trapdoor one column per bit of the modulus. A larger base trades
-/// those columns for a coarser gadget: `m` falls to
-/// `log_base(q) + 2`, which is what brings the orthogonalisation
-/// within reach, and the Gaussian width has to grow to match.
-pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetParametersRing {
+// The default of the reused component is base 2, which makes the
+// trapdoor one column per bit of the modulus. A larger base trades
+// those columns for a coarser gadget: `m` falls to
+// `log_base(q) + 2`, which is what brings the orthogonalisation
+// within reach, and the Gaussian width has to grow to match.
+pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetParametersRing { // builds gadget parameters for a chosen base
     assert!(log_base >= 1, "the gadget base must be at least 2");
     let mut parameters = GadgetParametersRing::init_default(degree, modulus);
     if log_base > 1 {
@@ -48,34 +46,32 @@ pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetPara
     parameters
 }
 
-/// Which of the two preimage samplers a key uses. Both sample the same
-/// distribution over the same coset; they differ in when the short
-/// basis is orthogonalised.
+// Which of the two preimage samplers a key uses. Both sample the same
+// distribution over the same coset; they differ in when the short
+// basis is orthogonalised.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sampling {
-    /// Reuse the orthogonalisation stored in the trapdoor, so a
-    /// preimage costs only a solve and a Klein sample. Default.
+    // Reuse the orthogonalisation stored in the trapdoor, so a
+    // preimage costs only a solve and a Klein sample. Default.
     #[default]
     StoredBasis,
-    /// Rebuild and orthogonalise the short basis on every call, as the
-    /// reused qFALL sampler does. Kept for comparison.
+    // Rebuild and orthogonalise the short basis on every call, as the
+    // reused qFALL sampler does. Kept for comparison.
     PerCall,
 }
 
 impl Sampling {
-    /// Both modes, so tests and the benchmark can cover each.
+    // Both modes, so tests and the benchmark can cover each.
     pub const ALL: [Sampling; 2] = [Sampling::StoredBasis, Sampling::PerCall];
 
-    /// The name used on the command line and in output.
-    pub fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str { // the name used on the command line and in output
         match self {
             Sampling::StoredBasis => "stored",
             Sampling::PerCall => "per-call",
         }
     }
 
-    /// Parses a command-line value; `None` if it is not a mode.
-    pub fn parse(value: &str) -> Option<Sampling> {
+    pub fn parse(value: &str) -> Option<Sampling> { // parses a command-line value; `None` if it is not a mode
         match value {
             "stored" | "stored-basis" | "fast" => Some(Sampling::StoredBasis),
             "per-call" | "percall" | "reused" => Some(Sampling::PerCall),
@@ -90,13 +86,13 @@ impl std::fmt::Display for Sampling {
     }
 }
 
-/// A trapdoor together with everything derived from it that does not
-/// depend on the target.
-///
-/// Both modes keep the derived values, because `key_gen` checks the
-/// smoothing bound against the orthogonalised basis and that check is
-/// not skipped for either mode. So per-call also pays one
-/// orthogonalisation at key generation, then another on every call.
+// A trapdoor together with everything derived from it that does not
+// depend on the target.
+//
+// Both modes keep the derived values, because `key_gen` checks the
+// smoothing bound against the orthogonalised basis and that check is
+// not skipped for either mode. So per-call also pays one
+// orthogonalisation at key generation, then another on every call.
 pub struct Trapdoor {
     pub r: MatPolyOverZ,
     pub e: MatPolyOverZ,
@@ -107,32 +103,30 @@ pub struct Trapdoor {
 }
 
 impl Trapdoor {
-    /// The public matrix this trapdoor belongs to. The reused sampler
-    /// takes `A` alongside the trapdoor, so the per-call mode needs it.
-    pub fn public_matrix(&self) -> &MatPolynomialRingZq {
+    // The reused sampler takes `A` alongside the trapdoor, so the
+    // per-call mode needs it.
+    pub fn public_matrix(&self) -> &MatPolynomialRingZq { // the public matrix this trapdoor belongs to
         &self.a
     }
 }
 
-/// A preimage sampler over `R_q`.
+// A preimage sampler over `R_q`.
 pub struct Sampler {
     psf: PSFGPVRing,
     sampling: Sampling,
 }
 
 impl Sampler {
-    /// A sampler in the default mode, `Sampling::StoredBasis`.
-    pub fn new(parameters: GadgetParametersRing, width: Q, trapdoor_width: Q) -> Sampler {
+    pub fn new(parameters: GadgetParametersRing, width: Q, trapdoor_width: Q) -> Sampler { // a sampler in the default mode, `Sampling::StoredBasis`
         Sampler::with_sampling(parameters, width, trapdoor_width, Sampling::default())
     }
 
-    /// A sampler in a chosen mode.
     pub fn with_sampling(
         parameters: GadgetParametersRing,
         width: Q,
         trapdoor_width: Q,
         sampling: Sampling,
-    ) -> Sampler {
+    ) -> Sampler { // a sampler in a chosen mode
         Sampler {
             psf: PSFGPVRing {
                 gp: parameters,
@@ -143,8 +137,7 @@ impl Sampler {
         }
     }
 
-    /// Which sampler this key uses.
-    pub fn sampling(&self) -> Sampling {
+    pub fn sampling(&self) -> Sampling { // which sampler this key uses
         self.sampling
     }
 
@@ -152,15 +145,14 @@ impl Sampler {
         &self.psf.gp.modulus
     }
 
-    /// The Gaussian width used for preimages.
-    pub fn width(&self) -> &Q {
+    pub fn width(&self) -> &Q { // the Gaussian width used for preimages
         &self.psf.s
     }
 
-    /// Samples `A` with its trapdoor, and does the target-independent
-    /// work: the short basis, its orthogonalisation, and the rotation
-    /// matrix that turns the ring equation into an integer one.
-    pub fn trap_gen(&self) -> (MatPolynomialRingZq, Trapdoor) {
+    // The target-independent work is the short basis, its
+    // orthogonalisation, and the rotation matrix that turns the ring
+    // equation into an integer one.
+    pub fn trap_gen(&self) -> (MatPolynomialRingZq, Trapdoor) { // samples `A` with its trapdoor, and does the target-independent work
         let degree = self.psf.gp.modulus.get_degree();
         let (a, (r, e)) = self.psf.trap_gen();
 
@@ -189,22 +181,18 @@ impl Sampler {
         )
     }
 
-    /// Samples a short `s` with `A s = target`, through whichever of the
-    /// two samplers this key was built with.
-    pub fn samp_p(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ {
+    pub fn samp_p(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ { // samples a short `s` with `A s = target`, through whichever of the two samplers this key was built with
         match self.sampling {
             Sampling::StoredBasis => self.samp_p_stored(trapdoor, target),
             Sampling::PerCall => self.samp_p_per_call(trapdoor, target),
         }
     }
 
-    /// The reused sampler, unchanged: it rebuilds the short basis from
-    /// the trapdoor and orthogonalises it again for this one target.
     fn samp_p_per_call(
         &self,
         trapdoor: &Trapdoor,
         target: &MatPolynomialRingZq,
-    ) -> MatPolyOverZ {
+    ) -> MatPolyOverZ { // the reused sampler, unchanged: rebuilds the short basis and orthogonalises it again for this one target
         self.psf.samp_p(
             &trapdoor.a,
             &(trapdoor.r.clone(), trapdoor.e.clone()),
@@ -212,9 +200,7 @@ impl Sampler {
         )
     }
 
-    /// The stored-basis sampler: the target-independent work was done
-    /// at key generation, so only the solve and the Klein sample remain.
-    fn samp_p_stored(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ {
+    fn samp_p_stored(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ { // the stored-basis sampler: only the solve and the Klein sample remain
         let degree = self.psf.gp.modulus.get_degree();
         let embedded_target = MatZq::from((
             &target
@@ -243,36 +229,29 @@ impl Sampler {
             + MatPolyOverZ::from_coefficient_embedding((&perturbation, degree - 1))
     }
 
-    /// Reports whether the preimage respects the norm bound `B_s`.
-    pub fn check_domain(&self, preimage: &MatPolyOverZ) -> bool {
+    pub fn check_domain(&self, preimage: &MatPolyOverZ) -> bool { // whether the preimage respects the norm bound `B_s`
         self.psf.check_domain(preimage)
     }
 
-    /// Computes `A s`.
-    pub fn f_a(&self, a: &MatPolynomialRingZq, preimage: &MatPolyOverZ) -> MatPolynomialRingZq {
+    pub fn f_a(&self, a: &MatPolynomialRingZq, preimage: &MatPolyOverZ) -> MatPolynomialRingZq { // computes `A s`
         self.psf.f_a(a, preimage)
     }
 
-    /// The squared norm bound that `check_domain` enforces, which is
-    /// the bound the proof relation has to state.
-    pub fn preimage_bound_sqrd(&self) -> Q {
+    pub fn preimage_bound_sqrd(&self) -> Q { // the squared norm bound `check_domain` enforces, which the proof relation has to state
         let degree = self.psf.gp.modulus.get_degree();
         &(&self.psf.s * &self.psf.s)
             * &(Q::from(self.columns()) * Q::from(degree))
     }
 
-    /// The number of columns of `A`, which is `m` of the construction.
-    /// The reused parameters call it `m_bar`; it is
-    /// `log_base(q) + 2`.
-    pub fn columns(&self) -> Z {
+    // The reused parameters call it `m_bar`; it is `log_base(q) + 2`.
+    pub fn columns(&self) -> Z { // the number of columns of `A`, which is `m` of the construction
         self.psf.gp.m_bar.clone()
     }
 
-    /// The largest squared Gram-Schmidt norm of the stored basis.
-    /// Klein's sampler is only correct for a width above its square
-    /// root times a smoothing factor, so it is what decides the width,
-    /// and a coarser gadget raises it.
-    pub fn max_gso_norm_sqrd(&self, trapdoor: &Trapdoor) -> Q {
+    // Klein's sampler is only correct for a width above its square
+    // root times a smoothing factor, so it is what decides the width,
+    // and a coarser gadget raises it.
+    pub fn max_gso_norm_sqrd(&self, trapdoor: &Trapdoor) -> Q { // the largest squared Gram-Schmidt norm of the stored basis
         let mut largest = Q::ZERO;
         for row in 0..trapdoor.basis_gso.get_num_rows() {
             let mut squared = Q::ZERO;
@@ -287,12 +266,10 @@ impl Sampler {
         largest
     }
 
-    /// The least width at which Klein's sampler is statistically
-    /// correct, for the stored basis. This is the smoothing condition
-    /// of the GPV framework with the statistical distance fixed at
-    /// `2^-64`; `max_gso_norm_sqrd` returns the squared norm, so the
-    /// square root is taken here.
-    pub fn least_width(&self, trapdoor: &Trapdoor) -> f64 {
+    // This is the smoothing condition of the GPV framework with the
+    // statistical distance fixed at `2^-64`; `max_gso_norm_sqrd`
+    // returns the squared norm, so the square root is taken here.
+    pub fn least_width(&self, trapdoor: &Trapdoor) -> f64 { // the least width at which Klein's sampler is statistically correct, for the stored basis
         let dimension = trapdoor.basis_gso.get_num_rows() as f64;
         let epsilon = 2.0_f64.powi(-64);
         let smoothing = ((2.0 * dimension * (1.0 + 1.0 / epsilon)).ln()
@@ -302,22 +279,18 @@ impl Sampler {
         squared.sqrt() * smoothing
     }
 
-    /// Whether this sampler's width meets the smoothing condition for
-    /// the given trapdoor. `key_gen` refuses a key that fails it.
-    ///
-    /// Below that width the sampler still returns and every output
-    /// still solves `A s = t` within the norm bound; only the output
-    /// distribution changes, so no correctness test can see it.
-    pub fn width_meets_smoothing(&self, trapdoor: &Trapdoor) -> bool {
+    // `key_gen` refuses a key that fails it. Below that width the
+    // sampler still returns and every output still solves `A s = t`
+    // within the norm bound; only the output distribution changes, so
+    // no correctness test can see it.
+    pub fn width_meets_smoothing(&self, trapdoor: &Trapdoor) -> bool { // whether this sampler's width meets the smoothing condition for the given trapdoor
         match f64::try_from(&self.psf.s) {
             Ok(width) => width >= self.least_width(trapdoor),
             Err(_) => false,
         }
     }
 
-    /// Reports whether a sampled preimage is non-zero, which
-    /// `R_sig` requires.
-    pub fn is_non_zero(&self, preimage: &MatPolyOverZ) -> bool {
+    pub fn is_non_zero(&self, preimage: &MatPolyOverZ) -> bool { // whether a sampled preimage is non-zero, which `R_sig` requires
         let degree = self.psf.gp.modulus.get_degree();
         norm_eucl_sqrd(preimage, degree) > Z::ZERO
     }
@@ -344,8 +317,8 @@ mod tests {
         )
     }
 
-    /// The tests below iterate over `Sampling::ALL`, so both modes are
-    /// covered rather than just the default.
+    // the tests below iterate over `Sampling::ALL`, so both modes are
+    // covered rather than just the default
     #[test]
     fn a_sample_solves_the_equation_and_respects_the_bound() {
         for sampling in Sampling::ALL {
@@ -360,8 +333,6 @@ mod tests {
         }
     }
 
-    /// Repeated calls under one trapdoor must keep working and must not
-    /// repeat themselves.
     #[test]
     fn repeated_samples_under_one_trapdoor_differ() {
         for sampling in Sampling::ALL {
@@ -377,8 +348,6 @@ mod tests {
         }
     }
 
-    /// The two names a user can give on the command line map onto the
-    /// two modes, and nothing else is accepted.
     #[test]
     fn the_sampling_modes_round_trip_through_their_names() {
         for sampling in Sampling::ALL {
@@ -390,8 +359,8 @@ mod tests {
         assert_eq!(Sampling::StoredBasis, Sampling::default());
     }
 
-    /// A larger gadget base gives the same guarantees with fewer
-    /// columns, which is the point of using one.
+    // a larger gadget base gives the same guarantees with fewer
+    // columns, which is the point of using one
     #[test]
     fn a_larger_gadget_base_shortens_the_preimage() {
         let narrow = toy_sampler(1);
@@ -410,18 +379,18 @@ mod tests {
         assert!(wide.check_domain(&preimage));
     }
 
-    /// The stored basis must not change what is sampled, only when the
-    /// work is done. Both samplers are given the same trapdoor, so any
-    /// difference is in the caching and not in the parameters.
-    ///
-    /// Checking the equation is not enough: a wrong centre would still
-    /// solve it while shifting the distribution, which is what would
-    /// leak the trapdoor. The mean squared norm is compared instead,
-    /// because it moves under both a shifted centre and a wrong
-    /// orthogonalisation. This compares two moments, not two
-    /// distributions, so it is evidence rather than proof; what makes
-    /// it strong is that both samplers reach the same library routine,
-    /// and only the point at which the basis is orthogonalised differs.
+    // The stored basis must not change what is sampled, only when the
+    // work is done. Both samplers are given the same trapdoor, so any
+    // difference is in the caching and not in the parameters.
+    //
+    // Checking the equation is not enough: a wrong centre would still
+    // solve it while shifting the distribution, which is what would
+    // leak the trapdoor. The mean squared norm is compared instead,
+    // because it moves under both a shifted centre and a wrong
+    // orthogonalisation. This compares two moments, not two
+    // distributions, so it is evidence rather than proof; what makes
+    // it strong is that both samplers reach the same library routine,
+    // and only the point at which the basis is orthogonalised differs.
     #[test]
     fn the_stored_basis_samples_the_same_distribution() {
         const ROUNDS: usize = 60;
@@ -456,8 +425,8 @@ mod tests {
         );
     }
 
-    /// The reused domain check is an upper bound only and accepts zero,
-    /// so callers pair it with `is_non_zero` for the `0 < ||s||` half.
+    // the reused domain check is an upper bound only and accepts zero,
+    // so callers pair it with `is_non_zero` for the `0 < ||s||` half
     #[test]
     fn the_reused_bound_check_accepts_a_zero_preimage() {
         let sampler = toy_sampler(1);
@@ -470,8 +439,8 @@ mod tests {
         assert!(!sampler.is_non_zero(&zero));
     }
 
-    /// The toy width has to clear the smoothing bound of its own
-    /// basis, or `key_gen` would refuse it.
+    // the toy width has to clear the smoothing bound of its own basis,
+    // or `key_gen` would refuse it
     #[test]
     fn the_toy_width_meets_the_smoothing_condition() {
         let sampler = toy_sampler(1);
@@ -480,9 +449,9 @@ mod tests {
         assert!(f64::try_from(sampler.width()).unwrap() >= sampler.least_width(&trapdoor));
     }
 
-    /// A width below the smoothing bound is detected rather than
-    /// silently accepted. This is the failure the report records in
-    /// "A Parameter That Was Silently Wrong".
+    // report: "A Parameter That Was Silently Wrong"
+    // a width below the smoothing bound is detected rather than
+    // silently accepted
     #[test]
     fn a_width_below_the_smoothing_bound_is_detected() {
         let sampler = toy_sampler(1);

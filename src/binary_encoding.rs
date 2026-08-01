@@ -1,17 +1,17 @@
-//! The fixed-function public function
-//! `f(mu) = Coeffs^{-1}(B * enc(mu))` of BLNS, Section 3.1.2.
-//! Report: "Instantiations of f".
+// report: "Instantiations of f"
+// The fixed-function public function
+// `f(mu) = Coeffs^{-1}(B * enc(mu))` of BLNS, Section 3.1.2.
 
 use crate::public_function::PublicFunction;
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq, ModulusPolynomialRingZq};
 use qfall_math::traits::{FromCoefficientEmbedding, MatrixSetEntry, Pow};
 
-/// The binary-encoding public function used by one public key.
-///
-/// The key space and the randomness space of the framework are
-/// singletons here, so this function takes only the input `mu`. The
-/// input space is `[2^t]`.
+// The binary-encoding public function used by one public key.
+//
+// The key space and the randomness space of the framework are
+// singletons here, so this function takes only the input `mu`. The
+// input space is `[2^t]`.
 pub struct BinaryEncoding {
     b_mat: MatZq,
     modulus: ModulusPolynomialRingZq,
@@ -20,8 +20,7 @@ pub struct BinaryEncoding {
 }
 
 impl BinaryEncoding {
-    /// Samples `B` uniformly; supports `t` in `[1, 62]`.
-    pub fn new(rows: i64, t: i64, modulus: ModulusPolynomialRingZq) -> BinaryEncoding {
+    pub fn new(rows: i64, t: i64, modulus: ModulusPolynomialRingZq) -> BinaryEncoding { // samples `B` uniformly; supports `t` in `[1, 62]`
         assert!(rows >= 1, "module rank n must be at least 1");
         assert!(
             (1..=62).contains(&t),
@@ -37,13 +36,11 @@ impl BinaryEncoding {
         }
     }
 
-    /// Returns the size `2^t` of the input space `M`.
-    pub fn input_space(&self) -> Z {
+    pub fn input_space(&self) -> Z { // returns the size `2^t` of the input space `M`
         Z::from(2).pow(self.t).unwrap()
     }
 
-    /// Returns the binary decomposition of `input - 1`.
-    fn encode(&self, input: &Z) -> MatZ {
+    fn encode(&self, input: &Z) -> MatZ { // returns the binary decomposition of `input - 1`
         let value = i64::try_from(&(input - Z::ONE)).unwrap();
         let mut encoding = MatZ::new(self.t, 1);
         for i in 0..self.t {
@@ -54,26 +51,23 @@ impl BinaryEncoding {
 }
 
 impl PublicFunction for BinaryEncoding {
-    /// The key space and the randomness space are singletons, so both
-    /// are the unit type.
+    // The key space and the randomness space are singletons, so both
+    // are the unit type.
     type Key = ();
     type Input = Z;
     type Randomness = ();
 
-    /// Returns the module rank `n`.
-    fn rows(&self) -> i64 {
+    fn rows(&self) -> i64 { // returns the module rank `n`
         self.rows
     }
 
-    /// Returns the modulus of `R_q`.
-    fn modulus(&self) -> &ModulusPolynomialRingZq {
+    fn modulus(&self) -> &ModulusPolynomialRingZq { // returns the modulus of `R_q`
         &self.modulus
     }
 
     fn sample_key(&self) {}
 
-    /// Samples the function input `mu` from `M`.
-    fn sample_input(&self) -> Z {
+    fn sample_input(&self) -> Z { // samples the function input `mu` from `M`
         Z::sample_uniform(Z::ONE, self.input_space() + Z::ONE).unwrap()
     }
 
@@ -83,8 +77,7 @@ impl PublicFunction for BinaryEncoding {
         true
     }
 
-    /// Reports whether `input` lies in `M`.
-    fn contains_input(&self, input: &Z) -> bool {
+    fn contains_input(&self, input: &Z) -> bool { // whether `input` lies in `M`
         input >= &Z::ONE && input <= &self.input_space()
     }
 
@@ -92,8 +85,7 @@ impl PublicFunction for BinaryEncoding {
         true
     }
 
-    /// Evaluates `f(mu)` as an `n x 1` matrix over `R_q`.
-    fn eval(&self, _key: &(), input: &Z, _randomness: &()) -> MatPolynomialRingZq {
+    fn eval(&self, _key: &(), input: &Z, _randomness: &()) -> MatPolynomialRingZq { // evaluates `f(mu)` as an `n x 1` matrix over `R_q`
         assert!(self.contains_input(input), "the input is outside M");
         let encoding = MatZq::from((&self.encode(input), self.modulus.get_q()));
         let product = &self.b_mat * &encoding;
@@ -135,7 +127,7 @@ mod tests {
         assert_eq!(value, f.eval(&(), &Z::from(5), &()));
     }
 
-    /// enc(1 - 1) is the zero vector, so f evaluates to zero.
+    // enc(1 - 1) is the zero vector, so f evaluates to zero
     #[test]
     fn eval_of_one_is_zero() {
         let f = setup();

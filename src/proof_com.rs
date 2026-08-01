@@ -1,6 +1,6 @@
-//! A Fiat-Shamir proof with rejection sampling for the commitment
-//! relation `c = B_1 m + B_2 r`.
-//! Report: "The Native Proof Layer".
+// report: "The Native Proof Layer"
+// A Fiat-Shamir proof with rejection sampling for the commitment
+// relation `c = B_1 m + B_2 r`.
 
 use crate::commitment::CommitmentKey;
 use crate::util::norm_inf;
@@ -11,36 +11,34 @@ use qfall_math::traits::{
 };
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
 
-/// The bounds used by the proof.
+// The bounds used by the proof.
 pub struct ProofParameters {
     pub witness_inf: i64,
     pub mask_inf: i64,
 }
 
 impl ProofParameters {
-    /// The bound on the response coefficients.
-    pub fn response_inf(&self, degree: i64) -> i64 {
+    pub fn response_inf(&self, degree: i64) -> i64 { // the bound on the response coefficients
         self.mask_inf - degree * self.witness_inf
     }
 }
 
-/// A proof of knowledge of a short opening.
+// A proof of knowledge of a short opening.
 pub struct Proof {
     pub challenge: PolyOverZ,
     pub message_response: MatPolyOverZ,
     pub randomness_response: MatPolyOverZ,
 }
 
-/// Proves knowledge of the opening `(m, r)` of `c`. The loop repeats
-/// until the response passes the rejection step, so the response does
-/// not depend on the witness.
+// The loop repeats until the response passes the rejection step, so
+// the response does not depend on the witness.
 pub fn prove(
     key: &CommitmentKey,
     parameters: &ProofParameters,
     message: &MatPolyOverZ,
     randomness: &MatPolyOverZ,
     commitment: &MatPolynomialRingZq,
-) -> Proof {
+) -> Proof { // proves knowledge of the opening `(m, r)` of `c`
     let degree = key.b1.get_mod().get_degree();
     let bound = parameters.response_inf(degree);
     assert!(bound > 0, "mask_inf must exceed degree times witness_inf");
@@ -68,13 +66,12 @@ pub fn prove(
     }
 }
 
-/// Verifies a proof for the commitment `c`.
 pub fn verify(
     key: &CommitmentKey,
     parameters: &ProofParameters,
     commitment: &MatPolynomialRingZq,
     proof: &Proof,
-) -> bool {
+) -> bool { // verifies a proof for the commitment `c`
     let degree = key.b1.get_mod().get_degree();
     let bound = Z::from(parameters.response_inf(degree));
     if proof.message_response.get_num_rows() != key.b1.get_num_columns()
@@ -108,13 +105,13 @@ fn combine(
     &(&key.b1 * &message_ring) + &(&key.b2 * &randomness_ring)
 }
 
-/// Derives a challenge with coefficients in {-1, 0, 1}. The hash input
-/// binds the matrices, the commitment, and the masking commitment.
+// The hash input binds the matrices, the commitment, and the masking
+// commitment.
 fn challenge_of(
     key: &CommitmentKey,
     commitment: &MatPolynomialRingZq,
     masked: &MatPolynomialRingZq,
-) -> PolyOverZ {
+) -> PolyOverZ { // derives a challenge with coefficients in {-1, 0, 1}
     let degree = key.b1.get_mod().get_degree();
     let input = format!("pi_com|{}|{}|{}|{}", key.b1, key.b2, commitment, masked);
     let digest = hash_to_mat_zq_sha256(&input, degree, 1, 3)
@@ -127,8 +124,7 @@ fn challenge_of(
     challenge
 }
 
-/// Multiplies every entry by the challenge in Z[X]/(X^d + 1).
-fn multiply(challenge: &PolyOverZ, vector: &MatPolyOverZ, degree: i64) -> MatPolyOverZ {
+fn multiply(challenge: &PolyOverZ, vector: &MatPolyOverZ, degree: i64) -> MatPolyOverZ { // multiplies every entry by the challenge in Z[X]/(X^d + 1)
     let mut ring_modulus = PolyOverZ::default();
     ring_modulus.set_coeff(0, 1).unwrap();
     ring_modulus.set_coeff(degree, 1).unwrap();
@@ -213,7 +209,7 @@ mod tests {
         assert!(norm_inf(&proof.randomness_response, D) <= bound);
     }
 
-    /// A zero witness makes every product with the challenge zero.
+    // a zero witness makes every product with the challenge zero
     #[test]
     fn zero_witness_is_handled() {
         let modulus = new_anticyclic(D, Q).unwrap();

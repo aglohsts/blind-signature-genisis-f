@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Reports: "LaZer Integration" and "The Final-Signature Proof". */
+// report: "LaZer Integration" and "The Final-Signature Proof"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,8 +20,8 @@ extern "C" {
 #define BS_LAZER_D64_WITNESS_COEFFS                                          \
   (BS_LAZER_D64_COMMITMENT_COLUMNS * BS_LAZER_D64_DEGREE)
 
-/* The bounded witness is the concatenation (s, xi, r). Its three
- * blocks match the three exact l2 proofs of the generated profile. */
+// the bounded witness is the concatenation (s, xi, r); its three
+// blocks match the three exact l2 proofs of the generated profile
 #define BS_LAZER_SIG_D64_DEGREE 64u
 #define BS_LAZER_SIG_D64_PREIMAGE_COLUMNS 10u
 #define BS_LAZER_SIG_D64_FUNCTION_RANDOMNESS_COLUMNS 2u
@@ -52,31 +52,31 @@ enum bs_lazer_status
   BS_LAZER_INTERNAL_ERROR = -3
 };
 
-/* Initialises the pinned LaZer library once per process. */
+// initialises the pinned LaZer library once per process
 int bs_lazer_init (void);
 
-/* The modulus each generated profile actually uses. The advanced
- * generator is given a bit length and picks its own prime, so these are
- * read back rather than assumed; a mismatch with the constant the shims
- * reduce by would make the prover and the verifier disagree. */
+// the modulus each generated profile actually uses; the advanced
+// generator is given a bit length and picks its own prime, so these are
+// read back rather than assumed; a mismatch with the constant the shims
+// reduce by would make the prover and the verifier disagree
 uint64_t bs_lazer_d64_modulus (void);
 uint64_t bs_lazer_sig_d64_modulus (void);
 
-/* Fixed transport length (LaZer's maximum encoded length) for this profile. */
+// fixed transport length (LaZer's maximum encoded length) for this profile
 size_t bs_lazer_d64_proof_len (void);
 
-/* Expected encoded length for the advanced final-signature profile. */
+// expected encoded length for the advanced final-signature profile
 size_t bs_lazer_sig_d64_proof_len (void);
 
-/* Guarded output capacity used by the advanced encoder. */
+// guarded output capacity used by the advanced encoder
 size_t bs_lazer_sig_d64_proof_capacity (void);
 
-/* Returns 1 exactly when the hidden values satisfy the fixed profile. */
+// returns 1 exactly when the hidden values satisfy the fixed profile
 int bs_lazer_sig_d64_witness_is_valid (const int64_t *witness,
                                        size_t witness_len,
                                        const int64_t *tag, size_t tag_len);
 
-/* Proves linear * witness + tag_matrix * tag + offset = 0 coefficient-wise. */
+// proves linear * witness + tag_matrix * tag + offset = 0 coefficient-wise
 int bs_lazer_sig_d64_prove (
     const int64_t *linear, size_t linear_len, const int64_t *tag_matrix,
     size_t tag_matrix_len, const int64_t *offset, size_t offset_len,
@@ -84,21 +84,21 @@ int bs_lazer_sig_d64_prove (
     size_t tag_len, const uint8_t ppseed[32], const uint8_t coins[32],
     uint8_t *proof, size_t proof_capacity, size_t *proof_len);
 
-/* Verifies the same coefficient statement against an encoded proof. */
+// verifies the same coefficient statement against an encoded proof
 int bs_lazer_sig_d64_verify (
     const int64_t *linear, size_t linear_len, const int64_t *tag_matrix,
     size_t tag_matrix_len, const int64_t *offset, size_t offset_len,
     const uint8_t ppseed[32], const uint8_t *proof, size_t proof_len);
 
-/* Proves A * w - c = 0; coins may be NULL for system randomness. */
+// proves A * w - c = 0; coins may be NULL for system randomness
 int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
                         size_t c_len, const int64_t *w, size_t w_len,
                         const uint8_t ppseed[32], const uint8_t coins[32],
                         uint8_t *proof, size_t proof_capacity,
                         size_t *proof_len);
 
-/* Returns 1 for an accepted proof, 0 for a rejected proof, or a negative
- * bs_lazer_status value for an invalid call or internal failure. */
+// returns 1 for an accepted proof, 0 for a rejected proof, or a negative
+// bs_lazer_status value for an invalid call or internal failure
 int bs_lazer_d64_verify (const int64_t *a, size_t a_len, const int64_t *c,
                          size_t c_len, const uint8_t ppseed[32],
                          const uint8_t *proof, size_t proof_len);

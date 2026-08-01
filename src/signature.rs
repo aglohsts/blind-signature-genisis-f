@@ -1,13 +1,13 @@
-//! Finalisation and verification.
-//! Report: "Local finalisation" and "Verification" of the construction,
-//! implemented as described in "The Commitment and the Protocol Layer"
-//! and, for the proof-based path, "The Proof Layer on LaZer".
-//!
-//! Two paths exist. The transparent signature carries the witness in
-//! the clear and gives no blindness; it is kept because it works for
-//! every public function, including the hash-based one. The
-//! proof-based path replaces the witness by `pi_sig` and needs a
-//! function whose evaluation is linear in its hidden arguments.
+// report: "Local finalisation" and "Verification", implemented as
+// described in "The Commitment and the Protocol Layer" and, for the
+// proof-based path, "The Proof Layer on LaZer"
+// Finalisation and verification.
+//
+// Two paths exist. The transparent signature carries the witness in
+// the clear and gives no blindness; it is kept because it works for
+// every public function, including the hash-based one. The
+// proof-based path replaces the witness by `pi_sig` and needs a
+// function whose evaluation is linear in its hidden arguments.
 
 use crate::issue::{Response, UserState};
 use crate::keys::PublicKey;
@@ -23,8 +23,8 @@ pub mod lazer_statement;
 #[cfg(feature = "lazer-ffi")]
 pub use lazer_statement::{LazerSignatureProof, LazerSignatureProvider};
 
-/// A transparent signature. It carries the witness in the clear, so it
-/// gives no blindness.
+// A transparent signature. It carries the witness in the clear, so it
+// gives no blindness.
 pub struct Signature<F: PublicFunction> {
     pub function_input: F::Input,
     pub function_randomness: F::Randomness,
@@ -32,9 +32,8 @@ pub struct Signature<F: PublicFunction> {
     pub randomness: MatPolyOverZ,
 }
 
-/// Step 4: the user builds the signature from its state and the
-/// response. The caller runs the user check first.
-pub fn finalise<F: PublicFunction>(state: UserState, response: Response<F>) -> Signature<F> {
+// The caller runs the user check first.
+pub fn finalise<F: PublicFunction>(state: UserState, response: Response<F>) -> Signature<F> { // step 4: the user builds the signature from its state and the response
     Signature {
         function_input: response.function_input,
         function_randomness: response.function_randomness,
@@ -43,12 +42,11 @@ pub fn finalise<F: PublicFunction>(state: UserState, response: Response<F>) -> S
     }
 }
 
-/// Checks the final relation directly on the witness.
 pub fn verify<F: PublicFunction>(
     public_key: &PublicKey<F>,
     message: &MatPolyOverZ,
     signature: &Signature<F>,
-) -> bool {
+) -> bool { // checks the final relation directly on the witness
     let degree = public_key.function.modulus().get_degree();
     // Dimensions first, then the norm bounds: the reused products
     // assert both, so an unchecked input would stop the program instead
@@ -77,7 +75,7 @@ pub fn verify<F: PublicFunction>(
                 .commit(message, &signature.randomness)
 }
 
-/// A proof provider for the final-signature relation `R_sig`.
+// A proof provider for the final-signature relation `R_sig`.
 pub trait FinalSignatureProofProvider<F: PublicFunction> {
     type Witness;
     type Proof;
@@ -98,9 +96,9 @@ pub trait FinalSignatureProofProvider<F: PublicFunction> {
     ) -> bool;
 }
 
-/// The hidden witness of `R_sig` for the algebraic public function.
-/// The function input `mu` appears only through its binary encoding,
-/// which is the form the proof system can handle.
+// The hidden witness of `R_sig` for the algebraic public function.
+// The function input `mu` appears only through its binary encoding,
+// which is the form the proof system can handle.
 pub struct ModuleLweWitness {
     pub encoding: MatZ,
     pub function_randomness: MatPolyOverZ,
@@ -108,17 +106,16 @@ pub struct ModuleLweWitness {
     pub randomness: MatPolyOverZ,
 }
 
-/// A final signature that contains only its proof.
+// A final signature that contains only its proof.
 pub struct ProofSignature<P> {
     pub proof: P,
 }
 
-/// Builds the hidden witness from an accepted issuing run.
 pub fn signature_witness(
     public_key: &PublicKey<ModuleLweEncoding>,
     state: UserState,
     response: Response<ModuleLweEncoding>,
-) -> ModuleLweWitness {
+) -> ModuleLweWitness { // builds the hidden witness from an accepted issuing run
     ModuleLweWitness {
         encoding: public_key.function.encode(&response.function_input),
         function_randomness: response.function_randomness,
@@ -127,8 +124,6 @@ pub fn signature_witness(
     }
 }
 
-/// Step 4 of the proof-based path: assembles a signature that hides
-/// the witness.
 pub fn finalise_with_provider<P>(
     public_key: &PublicKey<ModuleLweEncoding>,
     state: UserState,
@@ -137,7 +132,7 @@ pub fn finalise_with_provider<P>(
 ) -> Result<ProofSignature<P::Proof>, P::Error>
 where
     P: FinalSignatureProofProvider<ModuleLweEncoding, Witness = ModuleLweWitness>,
-{
+{ // step 4 of the proof-based path: assembles a signature that hides the witness
     let message = state.message.clone();
     let witness = signature_witness(public_key, state, response);
     provider
@@ -145,7 +140,6 @@ where
         .map(|proof| ProofSignature { proof })
 }
 
-/// Verifies a proof-based signature against its public message.
 pub fn verify_with_provider<P>(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
@@ -154,19 +148,18 @@ pub fn verify_with_provider<P>(
 ) -> bool
 where
     P: FinalSignatureProofProvider<ModuleLweEncoding>,
-{
+{ // verifies a proof-based signature against its public message
     provider.verify(public_key, message, &signature.proof)
 }
 
-/// Checks `R_sig` on the witness without producing a proof. The proof
-/// provider calls this before it hands the witness to LaZer, so a
-/// malformed witness is reported as an error instead of an invalid
-/// proof.
+// The proof provider calls this before it hands the witness to LaZer,
+// so a malformed witness is reported as an error instead of an
+// invalid proof.
 pub fn relation_holds(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
     witness: &ModuleLweWitness,
-) -> bool {
+) -> bool { // checks `R_sig` on the witness without producing a proof
     let function = &public_key.function;
     let degree = function.modulus().get_degree();
     if !has_layout(
@@ -206,16 +199,15 @@ pub fn relation_holds(
                     .commit(message, &witness.randomness)
 }
 
-/// The shapes the reused matrix products assert. Both verification
-/// paths check these first, so a malformed input is rejected instead of
-/// stopping the program.
+// Both verification paths check these first, so a malformed input is
+// rejected instead of stopping the program.
 fn has_layout<F: PublicFunction>(
     public_key: &PublicKey<F>,
     message: &MatPolyOverZ,
     randomness: &MatPolyOverZ,
     preimage: &MatPolyOverZ,
     degree: i64,
-) -> bool {
+) -> bool { // the shapes the reused matrix products assert
     (message.get_num_rows(), message.get_num_columns())
         == (public_key.commitment_key.b1.get_num_columns(), 1)
         && (randomness.get_num_rows(), randomness.get_num_columns())
@@ -308,8 +300,8 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    /// Adding a multiple of q keeps the equation over R_q but breaks
-    /// the norm bound, so verification must reject.
+    // adding a multiple of q keeps the equation over R_q but breaks
+    // the norm bound, so verification must reject
     #[test]
     fn oversized_preimage_fails_the_norm_check() {
         let (public_key, secret_key, message) = setup();
@@ -320,8 +312,8 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    /// R_sig asks for `0 < ||s||`; the reused bound check accepts zero,
-    /// so verification supplies the other half itself.
+    // R_sig asks for `0 < ||s||`; the reused bound check accepts zero,
+    // so verification supplies the other half itself
     #[test]
     fn a_zero_preimage_fails_verification() {
         let (public_key, secret_key, message) = setup();
@@ -331,8 +323,8 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    /// A message of the wrong length must be rejected, not stop the
-    /// program: the reused commitment product asserts its shapes.
+    // must be rejected, not stop the program: the reused commitment
+    // product asserts its shapes
     #[test]
     fn a_wrong_length_message_is_rejected() {
         let (public_key, secret_key, message) = setup();
@@ -341,7 +333,7 @@ mod tests {
         assert!(!verify(&public_key, &MatPolyOverZ::new(3, 1), &signature));
     }
 
-    /// The same for the two witness vectors carried by the signature.
+    // the same for the two witness vectors carried by the signature
     #[test]
     fn a_wrong_length_witness_is_rejected() {
         let (public_key, secret_key, message) = setup();

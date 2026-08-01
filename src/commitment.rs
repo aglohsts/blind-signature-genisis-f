@@ -1,11 +1,11 @@
-//! The commitment `c = B_1 m + B_2 r` over `R_q`.
-//! Report: "The Commitment and the Protocol Layer".
+// report: "The Commitment and the Protocol Layer"
+// The commitment `c = B_1 m + B_2 r` over `R_q`.
 
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 use qfall_math::traits::MatrixDimensions;
 
-/// The public commitment matrices.
+// The public commitment matrices.
 pub struct CommitmentKey {
     pub b1: MatPolynomialRingZq,
     pub b2: MatPolynomialRingZq,
@@ -13,15 +13,13 @@ pub struct CommitmentKey {
 }
 
 impl CommitmentKey {
-    /// Samples uniform `B_1` and `B_2`. The bound `psi` fixes the
-    /// randomness distribution `chi_r`.
     pub fn generate(
         ell_m: i64,
         ell_r: i64,
         psi: i64,
         rows: i64,
         modulus: &ModulusPolynomialRingZq,
-    ) -> CommitmentKey {
+    ) -> CommitmentKey { // samples uniform `B_1` and `B_2`; `psi` fixes the randomness distribution `chi_r`
         assert!(ell_m >= 1, "the message length must be at least 1");
         assert!(
             ell_r >= rows,
@@ -35,9 +33,7 @@ impl CommitmentKey {
         }
     }
 
-    /// Samples `r` from `chi_r^{ell_r}`, uniform over the ring
-    /// elements with coefficients bounded by `psi`.
-    pub fn sample_randomness(&self) -> MatPolyOverZ {
+    pub fn sample_randomness(&self) -> MatPolyOverZ { // samples `r` from `chi_r^{ell_r}`, coefficients bounded by `psi`
         let degree = self.b2.get_mod().get_degree();
         MatPolyOverZ::sample_uniform(
             self.b2.get_num_columns(),
@@ -49,14 +45,12 @@ impl CommitmentKey {
         .unwrap()
     }
 
-    /// Returns the bound `B_r = psi * sqrt(ell_r * d)` as its square.
-    pub fn randomness_bound_sqrd(&self) -> Z {
+    pub fn randomness_bound_sqrd(&self) -> Z { // returns the bound `B_r = psi * sqrt(ell_r * d)` as its square
         let degree = self.b2.get_mod().get_degree();
         Z::from(self.psi * self.psi * self.b2.get_num_columns() * degree)
     }
 
-    /// Computes `c = B_1 m + B_2 r`.
-    pub fn commit(&self, message: &MatPolyOverZ, randomness: &MatPolyOverZ) -> MatPolynomialRingZq {
+    pub fn commit(&self, message: &MatPolyOverZ, randomness: &MatPolyOverZ) -> MatPolynomialRingZq { // computes `c = B_1 m + B_2 r`
         assert_eq!(
             (self.b1.get_num_columns(), 1),
             (message.get_num_rows(), message.get_num_columns()),
@@ -122,7 +116,7 @@ mod tests {
         assert_ne!(key.commit(&message, &randomness), key.commit(&message, &other));
     }
 
-    /// Every sampled r must respect the bound B_r of the report.
+    // every sampled r must respect the bound B_r of the report
     #[test]
     fn randomness_respects_its_bound() {
         let (key, _, _) = setup();

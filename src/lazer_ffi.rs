@@ -1,29 +1,29 @@
-//! Safe Rust boundary for the fixed LaZer `d = 64` profiles.
-//! Report: "The Proof Layer on LaZer".
-//!
-//! Two profiles are exposed. The linear profile proves the commitment
-//! relation of `Pi_com`; the advanced profile proves the
-//! final-signature relation of `Pi_sig`. Both are generated ahead of
-//! time, so every dimension here is a compile-time constant and each
-//! entry point checks its input lengths before it calls into C.
+// report: "The Proof Layer on LaZer"
+// Safe Rust boundary for the fixed LaZer `d = 64` profiles.
+//
+// Two profiles are exposed. The linear profile proves the commitment
+// relation of `Pi_com`; the advanced profile proves the
+// final-signature relation of `Pi_sig`. Both are generated ahead of
+// time, so every dimension here is a compile-time constant and each
+// entry point checks its input lengths before it calls into C.
 
 use std::ffi::CStr;
 use std::fmt;
 use std::os::raw::c_char;
 
-/// The ring degree `d` shared by both profiles.
+// The ring degree `d` shared by both profiles.
 pub const DEGREE: usize = 64;
 
-/// The modulus `q` shared by both profiles.
+// The modulus `q` shared by both profiles.
 pub const MODULUS: u64 = 288_230_376_151_713_349;
 
-/// The message and randomness bounds fixed by the generated profiles.
+// The message and randomness bounds fixed by the generated profiles.
 pub const PROFILE_MESSAGE_BOUND_SQ: i64 = 16;
 pub const PROFILE_RANDOMNESS_BOUND_SQ: i64 = 2_000;
 pub const PROFILE_FUNCTION_RANDOMNESS_BOUND_SQ: i64 = 2_000;
-/// The squared preimage bound the final-signature profile proves. It
-/// follows from the Gaussian width and the trapdoor dimensions, so a
-/// key whose sampler is configured differently cannot use the profile.
+// The squared preimage bound the final-signature profile proves. It
+// follows from the Gaussian width and the trapdoor dimensions, so a
+// key whose sampler is configured differently cannot use the profile.
 pub const PROFILE_PREIMAGE_BOUND_SQ: i64 = 6_553_600_000;
 pub const PROFILE_WITNESS_INF: i64 = 20;
 
@@ -172,8 +172,7 @@ fn require_len(name: &'static str, actual: usize, expected: usize) -> Result<(),
     }
 }
 
-/// Initialises LaZer and returns the version reported by its C API.
-pub fn version() -> Result<&'static str, Error> {
+pub fn version() -> Result<&'static str, Error> { // initialises LaZer and returns the version reported by its C API
     // SAFETY: The shim initialises LaZer and owns the static version string.
     unsafe {
         status_result(bs_lazer_init())?;
@@ -187,49 +186,45 @@ pub fn version() -> Result<&'static str, Error> {
     }
 }
 
-/// The modulus the commitment profile was generated with.
-pub fn commitment_modulus() -> u64 {
+pub fn commitment_modulus() -> u64 { // the modulus the commitment profile was generated with
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_d64_modulus() }
 }
 
-/// The modulus the final-signature profile was generated with. Its
-/// generator is given a bit length rather than a modulus and chooses
-/// its own prime, so this is not the same thing as asking for one.
-pub fn final_signature_modulus() -> u64 {
+// Its generator is given a bit length rather than a modulus and
+// chooses its own prime, so this is not the same thing as asking for
+// one.
+pub fn final_signature_modulus() -> u64 { // the modulus the final-signature profile was generated with
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_sig_d64_modulus() }
 }
 
-/// Returns the fixed transport length of the commitment profile.
-/// LaZer's variable-length encoding is followed by canonical zero
-/// padding, so the proof size does not leak the witness.
-pub fn proof_len() -> usize {
+// LaZer's variable-length encoding is followed by canonical zero
+// padding, so the proof size does not leak the witness.
+pub fn proof_len() -> usize { // returns the fixed transport length of the commitment profile
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_d64_proof_len() }
 }
 
-/// Returns the guarded output capacity of the final-signature profile.
-pub fn final_signature_proof_capacity() -> usize {
+pub fn final_signature_proof_capacity() -> usize { // returns the guarded output capacity of the final-signature profile
     // SAFETY: Reads constants from the generated profile and C shim.
     unsafe { bs_lazer_sig_d64_proof_capacity() }
 }
 
-/// Returns the expected encoded length of the final-signature profile.
-pub fn final_signature_proof_len() -> usize {
+pub fn final_signature_proof_len() -> usize { // returns the expected encoded length of the final-signature profile
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_sig_d64_proof_len() }
 }
 
-/// Proves the fixed commitment relation. Pass `None` for system
-/// randomness or a 32-byte `coins` value for deterministic tests.
+// Pass `None` for system randomness or a 32-byte `coins` value for
+// deterministic tests.
 pub fn prove(
     a: &[i64],
     c: &[i64],
     witness: &[i64],
     ppseed: &[u8; 32],
     coins: Option<&[u8; 32]>,
-) -> Result<Vec<u8>, Error> {
+) -> Result<Vec<u8>, Error> { // proves the fixed commitment relation
     require_len("matrix", a.len(), MATRIX_COEFFICIENTS)?;
     require_len("statement", c.len(), STATEMENT_COEFFICIENTS)?;
     require_len("witness", witness.len(), WITNESS_COEFFICIENTS)?;
@@ -260,7 +255,7 @@ pub fn prove(
     Ok(proof)
 }
 
-/// Verifies a proof for the fixed commitment relation.
+// Verifies a proof for the fixed commitment relation.
 pub fn verify(a: &[i64], c: &[i64], ppseed: &[u8; 32], proof: &[u8]) -> Result<bool, Error> {
     require_len("matrix", a.len(), MATRIX_COEFFICIENTS)?;
     require_len("statement", c.len(), STATEMENT_COEFFICIENTS)?;
@@ -290,8 +285,6 @@ pub fn verify(a: &[i64], c: &[i64], ppseed: &[u8; 32], proof: &[u8]) -> Result<b
     }
 }
 
-/// Proves the fixed coefficient-level final-signature relation
-/// `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`.
 pub fn prove_final_signature(
     linear: &[i64],
     tag_matrix: &[i64],
@@ -300,7 +293,7 @@ pub fn prove_final_signature(
     tag: &[i64],
     ppseed: &[u8; 32],
     coins: Option<&[u8; 32]>,
-) -> Result<Vec<u8>, Error> {
+) -> Result<Vec<u8>, Error> { // proves the fixed coefficient-level relation `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`
     require_len(
         "final-signature linear matrix",
         linear.len(),
@@ -350,7 +343,7 @@ pub fn prove_final_signature(
     Ok(proof)
 }
 
-/// Verifies a proof for the fixed final-signature relation.
+// Verifies a proof for the fixed final-signature relation.
 pub fn verify_final_signature(
     linear: &[i64],
     tag_matrix: &[i64],
@@ -411,9 +404,9 @@ mod tests {
         (a, c, witness)
     }
 
-    /// A minimal instance of the final-signature relation. The
-    /// preimage block carries a non-zero entry so the norm equation
-    /// has an inverse, and one tag bit is wired through the tag matrix.
+    // A minimal instance of the final-signature relation. The
+    // preimage block carries a non-zero entry so the norm equation
+    // has an inverse, and one tag bit is wired through the tag matrix.
     fn final_signature_fixture() -> (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>) {
         let mut linear = vec![0; LINEAR_COEFFICIENTS];
         let mut tag_matrix = vec![0; TAG_MATRIX_COEFFICIENTS];
@@ -429,8 +422,8 @@ mod tests {
         (linear, tag_matrix, offset, witness, tag)
     }
 
-    /// Exercises the function-randomness block that the fixed-function
-    /// profile did not have. Its columns start after the preimage.
+    // Exercises the function-randomness block that the fixed-function
+    // profile did not have. Its columns start after the preimage.
     fn function_randomness_fixture() -> (Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>, Vec<i64>) {
         let (mut linear, tag_matrix, mut offset, mut witness, tag) = final_signature_fixture();
         let xi_first = PREIMAGE_COLUMNS * DEGREE;
@@ -447,11 +440,11 @@ mod tests {
         assert_eq!(final_signature_proof_capacity(), 54_016);
     }
 
-    /// Both profiles have to be generated over the same ring, and the
-    /// shims reduce their inputs by `MODULUS`, so all three must agree.
-    /// The advanced generator picks its own prime from a bit length,
-    /// and which prime it picks depends on the other parameters, so
-    /// this cannot be established by reading the source profiles.
+    // Both profiles have to be generated over the same ring, and the
+    // shims reduce their inputs by `MODULUS`, so all three must agree.
+    // The advanced generator picks its own prime from a bit length,
+    // and which prime it picks depends on the other parameters, so
+    // this cannot be established by reading the source profiles.
     #[test]
     fn both_profiles_use_the_declared_modulus() {
         assert_eq!(
@@ -536,8 +529,8 @@ mod tests {
         );
     }
 
-    /// The function-randomness block takes part in the equation and is
-    /// covered by its own exact l2 proof.
+    // the function-randomness block takes part in the equation and is
+    // covered by its own exact l2 proof
     #[test]
     fn final_signature_covers_the_function_randomness_block() {
         let (linear, tag_matrix, offset, witness, tag) = function_randomness_fixture();
@@ -559,8 +552,8 @@ mod tests {
         );
     }
 
-    /// A function randomness above the profile bound is refused before
-    /// LaZer is called.
+    // a function randomness above the profile bound is refused before
+    // LaZer is called
     #[test]
     fn rejects_oversized_function_randomness() {
         let (linear, tag_matrix, offset, mut witness, tag) = function_randomness_fixture();
@@ -579,8 +572,8 @@ mod tests {
         );
     }
 
-    /// A zero preimage has no modular inverse of its norm, so the
-    /// non-zero requirement of R_sig is enforced.
+    // a zero preimage has no modular inverse of its norm, so the
+    // non-zero requirement of R_sig is enforced
     #[test]
     fn rejects_zero_preimage() {
         let (linear, tag_matrix, offset, mut witness, tag) = final_signature_fixture();

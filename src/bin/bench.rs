@@ -1,5 +1,6 @@
-//! Benchmark: step timings and size estimates. Toy parameters; run
-//! with --release. Report: "Evaluation".
+// report: "Evaluation"
+// Benchmark: step timings and size estimates. Toy parameters; run
+// with --release.
 
 use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::commitment_proof::FiatShamirProvider;
@@ -22,11 +23,11 @@ const ELL_M: i64 = 2;
 const ELL_R: i64 = 2;
 const PSI: i64 = 3;
 const REPS: u32 = 20;
-/// Fewer repetitions for the sampler comparison: the per-call mode
-/// orthogonalises the short basis on every call, so it is the slowest
-/// thing the benchmark does.
+// Fewer repetitions for the sampler comparison: the per-call mode
+// orthogonalises the short basis on every call, so it is the slowest
+// thing the benchmark does.
 const SAMPLER_REPS: u32 = 5;
-/// The number of issuing sessions the totals below are quoted for.
+// The number of issuing sessions the totals below are quoted for.
 const SESSIONS: f64 = 20.0;
 
 fn toy_sampler_with(sampling: Sampling) -> Sampler {
@@ -68,11 +69,10 @@ fn fresh_keys_with(sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
     key_gen(function, sampler, toy_parameters())
 }
 
-/// Times key generation and one signer response under one sampler.
-/// These are the only two steps the choice of sampler reaches: the
-/// commitment, the proof, the user check and verification never touch
-/// the trapdoor.
-fn measure_sampler(sampling: Sampling) -> (f64, f64) {
+// These are the only two steps the choice of sampler reaches: the
+// commitment, the proof, the user check and verification never touch
+// the trapdoor.
+fn measure_sampler(sampling: Sampling) -> (f64, f64) { // times key generation and one signer response under one sampler
     let keygen_ms = time_ms(SAMPLER_REPS, || fresh_keys_with(sampling));
     let (public_key, secret_key) = fresh_keys_with(sampling);
     let message = MatPolyOverZ::sample_uniform(ELL_M, 1, D - 1, 0, 2).unwrap();

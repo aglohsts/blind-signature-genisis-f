@@ -1,17 +1,10 @@
-//! A hash-based public function
-//! `f(kappa, mu, xi) = H(sep || kappa || mu || xi)` over `R_q^n`.
-//! Report: "Instantiations of f".
-
+// report: "Instantiations of f"
 use crate::public_function::PublicFunction;
 use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 use qfall_schemes::hash::{HashInto, sha256::HashMatPolynomialRingZq};
 
-/// The public function `f` used by one public key.
-///
-/// The key `kappa` is sampled once by key generation. The input `mu`
-/// and the randomness `xi` are sampled by the signer in every issuing
-/// session. All three spaces are the integer ranges `[1, size]`.
+// `f(kappa, mu, xi) = H(sep || kappa || mu || xi)` over `R_q^n`.
 pub struct HashToRing {
     hasher: HashMatPolynomialRingZq,
     key_space: Z,
@@ -21,7 +14,6 @@ pub struct HashToRing {
 }
 
 impl HashToRing {
-    /// Creates the function for the given space sizes.
     pub fn new(
         rows: i64,
         key_space: impl Into<Z>,
@@ -29,16 +21,16 @@ impl HashToRing {
         randomness_space: impl Into<Z>,
         modulus: ModulusPolynomialRingZq,
         domain_separator: impl Into<String>,
-    ) -> HashToRing {
+    ) -> HashToRing { // creates the function for the given space sizes
         let key_space = key_space.into();
         let input_space = input_space.into();
         let randomness_space = randomness_space.into();
         assert!(rows >= 1, "module rank n must be at least 1");
-        assert!(key_space >= Z::ONE, "the key space must not be empty");
-        assert!(input_space >= Z::ONE, "the input space must not be empty");
+        assert!(key_space >= Z::ONE, "key space must not be empty");
+        assert!(input_space >= Z::ONE, "input space must not be empty");
         assert!(
             randomness_space >= Z::ONE,
-            "the randomness space must not be empty",
+            "randomness space must not be empty",
         );
         HashToRing {
             hasher: HashMatPolynomialRingZq {
@@ -59,48 +51,39 @@ impl PublicFunction for HashToRing {
     type Input = Z;
     type Randomness = Z;
 
-    /// Returns the module rank `n`.
-    fn rows(&self) -> i64 {
+    fn rows(&self) -> i64 { // returns the module rank `n`
         self.hasher.rows
     }
 
-    /// Returns the modulus of `R_q`.
-    fn modulus(&self) -> &ModulusPolynomialRingZq {
+    fn modulus(&self) -> &ModulusPolynomialRingZq { // returns the modulus of `R_q`
         &self.hasher.modulus
     }
 
-    /// Samples the function key `kappa` from `K`.
-    fn sample_key(&self) -> Z {
+    fn sample_key(&self) -> Z { // samples the function key `kappa` from `K`
         sample_in(&self.key_space)
     }
 
-    /// Samples the function input `mu` from `M`.
-    fn sample_input(&self) -> Z {
+    fn sample_input(&self) -> Z { // samples the function input `mu` from `M`
         sample_in(&self.input_space)
     }
 
-    /// Samples the function randomness `xi` from `X`.
-    fn sample_randomness(&self) -> Z {
+    fn sample_randomness(&self) -> Z { // samples the function randomness `xi` from `X`
         sample_in(&self.randomness_space)
     }
 
-    /// Reports whether `key` lies in `K`.
-    fn contains_key(&self, key: &Z) -> bool {
+    fn contains_key(&self, key: &Z) -> bool { // whether `key` lies in `K`
         is_in(key, &self.key_space)
     }
 
-    /// Reports whether `input` lies in `M`.
-    fn contains_input(&self, input: &Z) -> bool {
+    fn contains_input(&self, input: &Z) -> bool { // whether `input` lies in `M`
         is_in(input, &self.input_space)
     }
 
-    /// Reports whether `randomness` lies in `X`.
-    fn contains_randomness(&self, randomness: &Z) -> bool {
+    fn contains_randomness(&self, randomness: &Z) -> bool { // whether `randomness` lies in `X`
         is_in(randomness, &self.randomness_space)
     }
 
-    /// Evaluates `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`.
-    fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq {
+    fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq { // evaluates `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`
         assert!(self.contains_key(key), "the key is outside K");
         assert!(self.contains_input(input), "the input is outside M");
         assert!(
