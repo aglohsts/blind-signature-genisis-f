@@ -236,22 +236,165 @@ profiles, and how to regenerate them with SageMath. Regeneration is the one
 step that uses Docker, because it needs a pinned SageMath image; the build
 above does not.
 
-## Producing the whole evidence set at once
+## Evaluation: reproducing the evidence set
 
-One script runs everything in order and writes a single log: the
-machine it ran on, where every parameter comes from, both test suites,
-a worked protocol run, the step timings, and a note on what the numbers
-do and do not establish.
+These are the manual steps used to generate the results reported in the
+Evaluation chapter: the environment, parameter derivation, the test
+suites, a worked protocol run, and the step timings.
+
+To keep a record rather than only reading the output, append
+`2>&1 | tee -a evidence.log` to each command. **The output produced on
+the reference environment is the record that the LaZer layer works**, so
+run *Step 4* on the Linux machine and keep it.
+
+### Before you start
+
+Run all commands from the project root:
 
 ```sh
-scripts/evidence.sh
+cd path/to/blind-sig
 ```
 
-The LaZer sections are included when `scripts/build-lazer.sh` has been run
-and skipped with a note when it has not, so the log is complete on any
-platform and says what is missing from it. **The log produced on the
-reference environment is the record that the LaZer layer works**, so run
-this on the Linux machine after *Step 2* and keep the output.
+If the LaZer libraries are built, export their paths once so the later
+commands stay simple. Check which layout you have — `scripts/build-lazer.sh`
+writes `.lazer-src`, and the Docker recipe in `lazer/README.md` exports to
+`.lazer`:
+
+```sh
+ls .lazer-src/liblazer.a 2>/dev/null || ls .lazer/lib/liblazer.a 2>/dev/null
+```
+
+If `.lazer-src` exists:
+
+```sh
+export LAZER_INCLUDE_DIR=.lazer-src
+export LAZER_LIB_DIR=.lazer-src
+export LAZER_HEXL_LIB_DIR=.lazer-src/third_party/hexl-development/build/hexl/lib
+```
+
+If `.lazer` exists instead:
+
+```sh
+export LAZER_INCLUDE_DIR=.lazer/include
+export LAZER_LIB_DIR=.lazer/lib
+export LAZER_HEXL_LIB_DIR=.lazer/lib
+```
+
+If neither exists, skip *Step 4* and note this in the report.
+
+### 1. Environment
+
+Record the machine and toolchain used for the run:
+
+```sh
+date -u
+uname -a
+rustc --version
+git rev-parse --short HEAD
+```
+
+When the LaZer libraries are built, also record which revision they came
+from:
+
+```sh
+cat lazer/LAZER_REVISION
+```
+
+### 2. Parameter derivation
+
+The parameters are not chosen; they follow from three linked conditions.
+The gadget base fixes the preimage length and the basis size that key
+generation must orthogonalise. The base also fixes the basis's
+coarseness, and Klein's sampler is correct only above the largest
+Gram-Schmidt norm times a smoothing factor (GPV, STOC 2008). That width
+fixes the norm bound in the relation, and the proof system is
+knowledge-sound only above roughly its square (Lyubashevsky-Nguyen-
+Plancon 2022). The ring degree is fixed at d = 64 by the proof system's
+generator.
+
+```sh
+cargo run --release --bin parameters -- 8 288230376151713349
+```
+
+The arguments are `[degree] [modulus] [base]`. Here `8` is the ring
+degree the sweep runs at and `288230376151713349` is the modulus used in
+the report. With no third argument the tool tries every gadget base,
+which is only affordable at a small degree; it prints a warning when it
+runs below degree 64, because a width read at a smaller degree is an
+underestimate. Once a base is picked, read the real width at the degree
+the proof layer uses:
+
+```sh
+cargo run --release --bin parameters -- 64 288230376151713349 256
+```
+
+This prints, for each gadget base: the preimage length, the minimum
+width the smoothing condition allows, the resulting norm bound at
+degree 64, the modulus the proof system needs, and the
+orthogonalisation time.
+
+### 3. Test suite, without LaZer
+
+```sh
+cargo test --release
+```
+
+Takes under a minute once the dependencies are built. The *first* build
+compiles FLINT, GMP and MPFR from source and takes 10 to 20 minutes; see
+the table in *Disk, memory and time*.
+
+### 4. Test suite, with the LaZer proof layer (optional)
+
+Uses the environment variables set above. Single-threaded, since LaZer
+keeps process-wide state behind a one-time initialiser; key generation
+at degree 64 dominates the runtime.
+
+> **Note:** this step takes 20-30 minutes, the longest step in this
+> section. No output for long stretches is expected and does not mean
+> it has stalled.
+
+```sh
+cargo test --release --features lazer-ffi -- --test-threads=1
+```
+
+If LaZer is not built, skip this step and note it in the report.
+
+### 5. Worked protocol run, under each sampler
+
+Both samplers sign and verify the same message; only the timings
+differ.
+
+```sh
+cargo run --release --bin blind-sig -- --sampler=stored "hello world" "hello world"
+cargo run --release --bin blind-sig -- --sampler=per-call "hello world" "hello world"
+```
+
+`"hello world"` is the sample message used in the report and can be
+replaced with any other string. Each argument is signed in turn, so
+passing the same message twice signs it twice: the transcript differs
+each time, which is the freshness blindness rests on.
+
+### 6. Step timings and size estimates
+
+```sh
+cargo run --release --bin bench
+```
+
+Takes a few minutes.
+
+### 7. Scope of these results
+
+These steps show that the scheme runs, that both proof systems accept
+its relations, and what each step costs at the parameters above.
+
+They do not establish a security level. The message space, commitment
+randomness bound, and function-input space are toy values, and no
+hardness estimator was run for the underlying assumption. The proof
+system's own generator reports reductions for the proofs themselves,
+visible in the generated profile headers.
+
+The security argument also assumes straight-line extraction for the
+commitment proof. Neither proof layer provides this.
 
 ## Other platforms
 
@@ -267,7 +410,7 @@ The C and C++ parts of the build, and the parameter generation, do run
 correctly under that emulation, so the failure is confined to one
 toolchain.
 
-Run *Step 2* and `scripts/evidence.sh` on the Linux machine instead.
+Run *Step 2* and the evaluation steps on the Linux machine instead.
 
 ### Windows
 
@@ -312,7 +455,6 @@ src/bin/bench.rs               step timings and size estimates
 src/bin/parameters.rs          the width, bound and modulus a base implies
 lazer/                         pinned revision, patches, C shims, and profiles
 scripts/build-lazer.sh         builds the pinned LaZer static libraries
-scripts/evidence.sh            runs everything and writes one log
 tests/protocol.rs              the protocol through the public interface
 tests/lazer_protocol.rs        the same, with both proofs produced by LaZer
 ```
