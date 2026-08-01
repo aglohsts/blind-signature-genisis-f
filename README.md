@@ -20,12 +20,25 @@ platform on which the whole project runs:
   binding rejects the native Windows toolchain: its build script stops
   with *"Windows MSVC target is not supported (linking would fail)"*.
 * **x86-64, not arm64.** The pinned revision of LaZer, which supplies both
-  NIZK proof systems, targets x86-64 and does not build for arm64.
+  NIZK proof systems, targets x86-64 and does not build for arm64. Its
+  public header `lazer.h` includes `immintrin.h`, so on arm64 the C
+  compiler stops at *"This header is only meant to be used on x86 and x64
+  architecture"* before any project code is reached. This is a property of
+  the library, not of this project, so no change here works around it.
 
-The scheme itself (*Step 1*) is portable and runs on any platform qFALL
-supports, including an arm64 Mac. Only the LaZer proof layer (*Step 2*)
-needs x86-64. See *Other platforms* at the end for what does and does not
-work elsewhere.
+Neither limit comes from the scheme. Both come from a reused library, and
+together they leave no platform other than Linux on x86-64 on which the
+whole project runs.
+
+| | Linux x86-64 | Linux arm64 / macOS arm64 | Windows (native) |
+|---|---|---|---|
+| The scheme and its tests (*Step 1*) | yes | yes | no |
+| The LaZer proof layer (*Step 2*) | yes | no | no |
+| Evaluation figures reported in the project | yes | partial | no |
+
+The scheme itself is therefore portable across everything qFALL supports,
+including an arm64 Mac, and only the proof layer is restricted. See *Other
+platforms* at the end for what does and does not work elsewhere.
 
 ### Checking the machine
 
