@@ -12,7 +12,7 @@ fn required_dir(name: &str) -> PathBuf { // resolves one of the LaZer directorie
     let path = PathBuf::from(value);
     assert!(
         path.is_dir(),
-        "{} is not a directory: {}\nRun scripts/build-lazer.sh first.",
+        "{} is not a directory: {}\nFollow Step 2 of README.md first.",
         name,
         path.display()
     );
@@ -25,8 +25,8 @@ fn required_archive(dir: &PathBuf, file: &str, variable: &str) { // fails with a
     assert!(
         path.is_file(),
         "{} was not found in {}, which {} points at.\n\
-         The directory exists but the library was not built. Run\n\
-         scripts/build-lazer.sh and check that it finishes.",
+         The directory exists but the library was not built. Follow\n\
+         Step 2 of README.md and check that each step succeeds.",
         file,
         dir.display(),
         variable,
@@ -81,7 +81,7 @@ fn main() {
     assert!(
         include_dir.join("lazer.h").is_file(),
         "lazer.h was not found in {}, which LAZER_INCLUDE_DIR points at.\n\
-         Run scripts/build-lazer.sh and check that it finishes.",
+         Follow Step 2 of README.md and check that each step succeeds.",
         include_dir.display(),
     );
     required_archive(&lazer_dir, "liblazer.a", "LAZER_LIB_DIR");

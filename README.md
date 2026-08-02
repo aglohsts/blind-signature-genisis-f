@@ -53,8 +53,7 @@ Linux x86_64
 ```
 
 `aarch64` or `arm64` in place of `x86_64` means *Step 1* will run and
-*Step 2* will not; `scripts/build-lazer.sh` detects this and refuses with
-an explanatory message rather than failing halfway through a build.
+*Step 2* will not. *Step 2.1* checks this before anything is built.
 
 The reference environment is Ubuntu 24.04 LTS with GCC 13 and rustc 1.93.
 Any reasonably current distribution works; nothing in the build depends on
@@ -90,17 +89,17 @@ administer.
 
 **GMP and MPFR are absent from the package list on purpose.** qFALL depends
 on `gmp-mpfr-sys`, which builds both libraries from source during the first
-Cargo build. *Step 2* then reuses that copy: `scripts/build-lazer.sh` looks
-for `mpfr.h` on the system, and when it is missing it finds the one Cargo
-built under `target/` and points the compiler and linker at it.
+Cargo build. *Step 2.3* then reuses that copy: it looks for `mpfr.h` on the
+system, and when that is missing it points the compiler and linker at the
+one Cargo built under `target/`.
 
 The practical consequence is that **the whole project builds without root
 access**, which matters on a departmental machine. Installing `libgmp-dev`
 and `libmpfr-dev` also works and is slightly faster, if you have the rights
 to.
 
-`gcc-14` is optional. `scripts/build-lazer.sh` uses it when it is on the
-path and falls back to the default compiler otherwise.
+`gcc-14` is optional. *Step 2.7* uses it when it is on the path, and the
+default compiler otherwise.
 
 ### Disk, memory and time
 
@@ -110,7 +109,7 @@ path and falls back to the default compiler otherwise.
 | Disk, `.lazer-src/` after *Step 2* | about 0.5 GB |
 | First `cargo test` (compiles FLINT, GMP and MPFR from source) | 10 to 20 minutes |
 | Later `cargo test` runs | a few seconds |
-| `scripts/build-lazer.sh` | 5 to 15 minutes |
+| Building LaZer (*Step 2*) | 5 to 15 minutes |
 | The LaZer test suite, single-threaded | dominated by one key generation at `d = 64` |
 
 Work in a local directory. A network-mounted home directory makes the
@@ -215,26 +214,122 @@ width read at a smaller degree is an underestimate.
 
 ## Step 2: the LaZer-backed proof layer (Linux, x86-64)
 
-Run *Step 1* first. Besides checking that the scheme works, it builds
-the GMP and MPFR that LaZer needs to compile, and the script below
+The two NIZK proof systems of the construction, `Pi_com` and `Pi_sig`, are
+also implemented on top of the LaZer library. LaZer is pinned to the
+revision in `lazer/LAZER_REVISION`. Building it takes 5 to 15 minutes and
+has seven steps.
+
+Run *Step 1* first. Besides checking that the scheme works, it builds the
+GMP and MPFR that LaZer needs in order to compile, and *Step 2.3* below
 picks that copy up.
 
-The two NIZK proof systems of the construction, `Pi_com` and `Pi_sig`, are
-also implemented on top of the LaZer library. LaZer is pinned to the revision
-in `lazer/LAZER_REVISION`. One script fetches it, applies two patches for
-bugs in that revision, builds the vendored HEXL, and builds the static
-libraries:
+### 2.1 Check the architecture
 
 ```sh
-scripts/build-lazer.sh
+uname -m
 ```
 
-It checks the architecture first and refuses to run on anything but
-x86-64, saying so. When it finishes it prints the exact command to run the
-tests, which is:
+This must print `x86_64`. The pinned LaZer revision does not build on
+arm64, and the failure is not graceful: `lazer.h` includes `immintrin.h`,
+so the compiler stops with *"This header is only meant to be used on x86
+and x64 architecture"*. Stop here if the output is `aarch64` or `arm64`.
+
+### 2.2 Check the tools
 
 ```sh
-LAZER_INCLUDE_DIR=.lazer-src LAZER_LIB_DIR=.lazer-src LAZER_HEXL_LIB_DIR=.lazer-src/third_party/hexl-development/build/hexl/lib cargo test --features lazer-ffi -- --test-threads=1
+for t in git make cmake unzip patch; do command -v $t || echo "MISSING: $t"; done
+```
+
+All five must be present. See *Installing the toolchain* above.
+
+### 2.3 Point the compiler at GMP and MPFR
+
+Check whether the headers are already on the system:
+
+```sh
+printf '#include <mpfr.h>\nint main(void){return 0;}\n' | cc -x c -fsyntax-only -
+```
+
+If that prints nothing, the headers are present and this step is done.
+If it fails, use the copy that Cargo built during *Step 1*:
+
+```sh
+export CPATH=$(dirname $(find target -path '*gmp-mpfr-sys*/out/include/mpfr.h' | head -1))
+export LIBRARY_PATH=$(dirname $CPATH)/lib
+echo "CPATH=$CPATH"
+```
+
+If `find` returns nothing, *Step 1* has not been run yet. Run `cargo test`
+first. Installing `libgmp-dev` and `libmpfr-dev` also works, if you have
+the rights to.
+
+### 2.4 Fetch the pinned revision
+
+```sh
+git init .lazer-src
+git -C .lazer-src remote add origin https://github.com/lazer-crypto/lazer.git
+git -C .lazer-src fetch --depth 1 origin $(cat lazer/LAZER_REVISION)
+git -C .lazer-src checkout --detach FETCH_HEAD
+git -C .lazer-src submodule update --init --recursive
+```
+
+`.lazer-src` is excluded by `.gitignore` and takes about 0.5 GB.
+
+### 2.5 Apply the two patches
+
+The pinned revision has two bugs that stop the proof layer from working.
+`lazer/README.md` explains both.
+
+```sh
+for p in lazer/patches/*.patch; do patch --directory=.lazer-src --strip=1 --input="$p"; done
+```
+
+### 2.6 Build the vendored HEXL
+
+This is built before LaZer itself, because the vendored copy declares an
+old `cmake_minimum_required` that CMake 4 no longer accepts. The last
+option below overrides that.
+
+```sh
+cd .lazer-src/third_party
+unzip -q -o hexl-development.zip
+cmake -S hexl-development -B hexl-development/build \
+    -DHEXL_BENCHMARK=OFF -DHEXL_TESTING=OFF \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build hexl-development/build -j"$(nproc)"
+touch hexl-development
+cd ../..
+```
+
+`touch hexl-development` stops `make` from repeating the step later.
+Check the result before going on:
+
+```sh
+ls .lazer-src/third_party/hexl-development/build/hexl/lib/libhexl.a
+```
+
+### 2.7 Build the static library
+
+```sh
+make -C .lazer-src lib-static
+```
+
+Use `gcc-14` instead if it is on the path, which is faster:
+
+```sh
+make -C .lazer-src CC=gcc-14 CXX=g++-14 lib-static
+```
+
+Check the result:
+
+```sh
+ls .lazer-src/liblazer.a
+```
+
+### 2.8 Run the LaZer-backed tests
+
+```sh
+LAZER_INCLUDE_DIR=.lazer-src LAZER_LIB_DIR=.lazer-src LAZER_HEXL_LIB_DIR=.lazer-src/third_party/hexl-development/build/hexl/lib cargo test --release --features lazer-ffi -- --test-threads=1
 ```
 
 Single-threaded, because LaZer keeps process-wide state behind a one-time
@@ -245,9 +340,9 @@ exercise both generated profiles directly, and 3 integration tests in
 both are rejected when the statement changes.
 
 `lazer/README.md` documents the two patches, the generated parameter
-profiles, and how to regenerate them with SageMath. Regeneration is the one
-step that uses Docker, because it needs a pinned SageMath image; the build
-above does not.
+profiles, and how to regenerate them with SageMath. Regeneration is the
+one step that uses Docker, because it needs a pinned SageMath image. The
+build above does not.
 
 ## Evaluation: reproducing the evidence set
 
@@ -269,8 +364,8 @@ cd path/to/blind-sig
 ```
 
 If the LaZer libraries are built, export their paths once so the later
-commands stay simple. Check which layout you have — `scripts/build-lazer.sh`
-writes `.lazer-src`, and the Docker recipe in `lazer/README.md` exports to
+commands stay simple. Check which layout you have — *Step 2* writes
+`.lazer-src`, and the Docker recipe in `lazer/README.md` exports to
 `.lazer`:
 
 ```sh
@@ -467,7 +562,6 @@ src/main.rs                    the interactive demo
 src/bin/bench.rs               step timings and size estimates
 src/bin/parameters.rs          the width, bound and modulus a base implies
 lazer/                         pinned revision, patches, C shims, and profiles
-scripts/build-lazer.sh         builds the pinned LaZer static libraries
 tests/protocol.rs              the protocol through the public interface
 tests/lazer_protocol.rs        the same, with both proofs produced by LaZer
 ```
