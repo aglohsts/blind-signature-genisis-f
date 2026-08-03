@@ -95,11 +95,33 @@ These are toy parameters (`d = 8`, `q = 257`) and are not
 cryptographically sized. Chapter 8 of the report gives the full timings and
 sizes.
 
-The prototype carries 2 preimage samplers. The `stored` sampler
-orthogonalises the short basis once, at key generation. The `per-call`
-sampler repeats that work on every call, which is what the reused qFALL
-sampler does. They are interchangeable, and a signature made under one is
-accepted under the other.
+### The two preimage samplers
+
+The prototype carries 2 preimage samplers, and a key records which one it
+uses. What differs is *when* the short basis is orthogonalised, not what is
+sampled. Both draw a fresh, independent preimage on every call.
+
+| Sampler | Orthogonalises the short basis | Cost |
+|---|---|---|
+| `stored` (default) | once, at key generation | key generation is slow, each signature is fast |
+| `per-call` | again on every call, as the qFALL sampler does | each signature carries a full orthogonalisation |
+
+They are interchangeable. They sample the same distribution over the same
+coset, and a signature made under one is accepted by a verifier using the
+other.
+
+`cargo test` covers both without any flag, so the run above already tested
+them. Seven tests take each mode in turn: four in `src/preimage.rs` and two
+in `tests/protocol.rs` loop over both modes, and one more signs under one
+sampler and verifies under the other, in both directions. Two of these are
+worth naming. `repeated_samples_under_one_trapdoor_differ` checks that two
+calls on one trapdoor and one target give different preimages, which is
+what "fresh sample" means here.
+`the_stored_basis_samples_the_same_distribution` compares the mean squared
+norm of 60 samples from each mode, which is evidence that storing the basis
+changed the timing and not the output.
+
+To see the difference rather than test it:
 
 ```sh
 cargo run --release --bin blind-sig -- --sampler=per-call "hello world"
