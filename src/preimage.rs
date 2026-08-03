@@ -51,17 +51,15 @@ pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetPara
 // basis is orthogonalised.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Sampling {
-    // Reuse the orthogonalisation stored in the trapdoor, so a
-    // preimage costs only a solve and a Klein sample. Default.
+    // reuse the orthogonalisation stored in the trapdoor, so a preimage costs only a solve and a Klein sample (Default)
     #[default]
     StoredBasis,
-    // Rebuild and orthogonalise the short basis on every call, as the
-    // reused qFALL sampler does. Kept for comparison.
+    // rebuild and orthogonalise the short basis on every call, as the reused qFALL sampler does. Kept for comparison
     PerCall,
 }
 
 impl Sampling {
-    // Both modes, so tests and the benchmark can cover each.
+    // both modes, so tests and the benchmark can cover each
     pub const ALL: [Sampling; 2] = [Sampling::StoredBasis, Sampling::PerCall];
 
     pub fn name(self) -> &'static str { // the name used on the command line and in output
@@ -86,13 +84,10 @@ impl std::fmt::Display for Sampling {
     }
 }
 
-// A trapdoor together with everything derived from it that does not
-// depend on the target.
+// a trapdoor together with everything derived from it that does not depend on the target
 //
-// Both modes keep the derived values, because `key_gen` checks the
-// smoothing bound against the orthogonalised basis and that check is
-// not skipped for either mode. So per-call also pays one
-// orthogonalisation at key generation, then another on every call.
+// both modes keep the derived values, because `key_gen` checks the smoothing bound against the orthogonalised basis and that check is not skipped for either mode
+// so per-call also pays one orthogonalisation at key generation, then another on every call
 pub struct Trapdoor {
     pub r: MatPolyOverZ,
     pub e: MatPolyOverZ,
@@ -103,14 +98,13 @@ pub struct Trapdoor {
 }
 
 impl Trapdoor {
-    // The reused sampler takes `A` alongside the trapdoor, so the
-    // per-call mode needs it.
+    // the reused sampler takes `A` alongside the trapdoor, so the per-call mode needs it
     pub fn public_matrix(&self) -> &MatPolynomialRingZq { // the public matrix this trapdoor belongs to
         &self.a
     }
 }
 
-// A preimage sampler over `R_q`.
+// preimage sampler over `R_q`.
 pub struct Sampler {
     psf: PSFGPVRing,
     sampling: Sampling,
@@ -149,9 +143,7 @@ impl Sampler {
         &self.psf.s
     }
 
-    // The target-independent work is the short basis, its
-    // orthogonalisation, and the rotation matrix that turns the ring
-    // equation into an integer one.
+    // target-independent work is the short basis, its orthogonalisation, and the rotation matrix that turns the ring equation into an integer one
     pub fn trap_gen(&self) -> (MatPolynomialRingZq, Trapdoor) { // sample `A` with its trapdoor, and do the target-independent work
         let degree = self.psf.gp.modulus.get_degree();
         let (a, (r, e)) = self.psf.trap_gen();
@@ -266,9 +258,8 @@ impl Sampler {
         largest
     }
 
-    // This is the smoothing condition of the GPV framework with the
-    // statistical distance fixed at `2^-64`; `max_gso_norm_sqrd`
-    // returns the squared norm, so the square root is taken here.
+    // smoothing condition of the GPV framework with the statistical distance fixed at `2^-64`
+    // `max_gso_norm_sqrd` returns the squared norm, so the square root is taken here
     pub fn least_width(&self, trapdoor: &Trapdoor) -> f64 { // the least width at which Klein's sampler is statistically correct, for the stored basis
         let dimension = trapdoor.basis_gso.get_num_rows() as f64;
         let epsilon = 2.0_f64.powi(-64);
@@ -279,10 +270,8 @@ impl Sampler {
         squared.sqrt() * smoothing
     }
 
-    // `key_gen` refuses a key that fails it. Below that width the
-    // sampler still returns and every output still solves `A s = t`
-    // within the norm bound; only the output distribution changes, so
-    // no correctness test can see it.
+    // `key_gen` refuses a key that fails it. Below that width the sampler still returns and every output still solves `A s = t` within the norm bound
+    // only the output distribution changes, so no correctness test can see it
     pub fn width_meets_smoothing(&self, trapdoor: &Trapdoor) -> bool { // whether this sampler's width meets the smoothing condition for the given trapdoor
         match f64::try_from(&self.psf.s) {
             Ok(width) => width >= self.least_width(trapdoor),
@@ -317,8 +306,7 @@ mod tests {
         )
     }
 
-    // the tests below iterate over `Sampling::ALL`, so both modes are
-    // covered rather than just the default
+    // the tests below iterate over `Sampling::ALL`, so both modes are covered rather than just the default
     #[test]
     fn a_sample_solves_the_equation_and_respects_the_bound() {
         for sampling in Sampling::ALL {

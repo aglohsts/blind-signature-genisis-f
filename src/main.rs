@@ -145,7 +145,7 @@ fn parse_arguments() -> Result<(Sampling, Vec<String>), String> { // split `--sa
         match value {
             Some(value) => {
                 sampling = Sampling::parse(&value).ok_or_else(|| {
-                    format!("unknown sampler \"{value}\"; use \"stored\" or \"per-call\"")
+                    format!("unknown sampler \"{value}\", use \"stored\" or \"per-call\"")
                 })?;
             }
             None => messages.push(argument),
@@ -187,7 +187,7 @@ fn main() {
     println!("  message space {MESSAGE_BITS} bits, so your text is hashed down to fit");
     println!("  security      none: these are toy sizes, chosen to run fast");
     println!("  signature     carries its values in the open, so this demo gives");
-    println!("                no blindness; the LaZer tests cover the hidden form");
+    println!("                no blindness, LaZer tests cover the hidden form");
     match sampling {
         Sampling::StoredBasis => println!(
             "  sampler       stored: the short basis is prepared once, at key setup"

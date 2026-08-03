@@ -165,7 +165,7 @@ fn main() {
     let signature_bytes = response_bytes + packed_bytes(ELL_R * D, randomness_bits);
 
     println!("\nthe two preimage samplers (mean, ms):");
-    println!("  only key generation and the signer response differ; every other");
+    println!("  only key generation and the signer response differ, every other");
     println!("  step is identical.");
     println!(
         "\n  {:<10} {:>14} {:>16} {:>18}",

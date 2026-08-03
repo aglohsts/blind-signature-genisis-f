@@ -18,7 +18,7 @@ const BASES: [u32; 7] = [2, 4, 16, 64, 256, 4096, 65536];
 
 fn legend() {
     println!("Columns:");
-    println!("  base        gadget base b; the trapdoor needs one column per digit");
+    println!("  base        gadget base b, the trapdoor needs one column per digit");
     println!("              of q written in base b");
     println!("  m           columns of A, which is ceil(log_b q) + 2");
     println!("  min width   smallest Gaussian width the sampler may use with a basis");
@@ -40,7 +40,7 @@ fn main() {
     let first = args.next();
     if first.as_deref() == Some("-h") || first.as_deref() == Some("--help") {
         println!("usage: parameters [degree] [modulus] [base]");
-        println!("       base must be a power of two; omit it to try every base");
+        println!("       base must be a power of two, omit it to try every base");
         println!();
         legend();
         return;
