@@ -135,64 +135,90 @@ bound and the modulus that the proof system needs.
 
 ### Building LaZer
 
-LaZer is a C library and is not fetched by Cargo. Build it by following the
-instructions in its own repository:
+LaZer is a C library and is not fetched by Cargo, so it must be built once
+before the proof layer can be used. Its own repository is
+<https://github.com/lazer-crypto/lazer>, and its instructions take
+precedence if they differ from the steps below.
 
-<https://github.com/lazer-crypto/lazer>
+A plain `git clone` of that repository is not enough. This project needs one
+pinned revision and two patches on top of it, so run the five steps here.
+They take 5 to 15 minutes and are run from the project root.
 
-**If those instructions differ from the notes below, follow the official
-ones.** This section records only what is specific to this project. It is
-not a guide to LaZer itself.
+#### 1. Fetch the pinned revision
 
-Three things are specific to this project.
-
-First, the build must use one pinned revision. Later revisions may change
-the generated proof profiles, which the relation encodings depend on.
+Later revisions may change the generated proof profiles, which the relation
+encodings depend on, so the exact commit in `lazer/LAZER_REVISION` is used.
 
 ```sh
-cat lazer/LAZER_REVISION
+git init .lazer-src
+git -C .lazer-src remote add origin https://github.com/lazer-crypto/lazer.git
+git -C .lazer-src fetch --depth 1 origin $(cat lazer/LAZER_REVISION)
+git -C .lazer-src checkout --detach FETCH_HEAD
+git -C .lazer-src submodule update --init --recursive
 ```
 
-Second, that revision has two bugs that stop the proof layer from working,
-so the patches in `lazer/patches/` must be applied to the LaZer source tree
-before it is built. `lazer/README.md` explains both.
+`.lazer-src` is ignored by git and takes about 0.5 GB. LaZer has submodules
+of its own, which is why the last line is needed.
+
+#### 2. Apply the two patches
+
+The pinned revision has two bugs that stop the proof layer from working.
+`lazer/README.md` explains both.
 
 ```sh
 for p in lazer/patches/*.patch; do
-    patch --directory=<lazer-source> --strip=1 --input="$p"
+    patch --directory=.lazer-src --strip=1 --input="$p"
 done
 ```
 
-Third, GMP and MPFR do not need to be installed. If `mpfr.h` is not on the
-system, point the compiler at the copy that Cargo built:
+#### 3. Point the compiler at GMP and MPFR
+
+Only needed if `mpfr.h` is not already on the system. qFALL built a copy
+during `cargo test`:
 
 ```sh
 export CPATH=$(dirname $(find target -path '*gmp-mpfr-sys*/out/include/mpfr.h' | head -1))
 export LIBRARY_PATH=$(dirname $CPATH)/lib
 ```
 
-One known problem is worth naming, because the error message is unclear.
-The vendored HEXL declares a `cmake_minimum_required` that CMake 4 rejects.
-Passing `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` to its CMake step avoids this.
+#### 4. Build the vendored HEXL, then LaZer
 
-#### Checking that LaZer is built
+HEXL is built first. Its `cmake_minimum_required` is too old for CMake 4,
+and the last option below works around that. The error message without it is
+unclear, which is why the step is spelled out.
 
 ```sh
-cat lazer/LAZER_REVISION                                                # expected revision
-git -C <lazer-source> rev-parse HEAD                                    # must match
-ls <lazer-source>/liblazer.a                                            # the static library
-ls <lazer-source>/third_party/hexl-development/build/hexl/lib/libhexl.a # HEXL
+cd .lazer-src/third_party
+unzip -q -o hexl-development.zip
+cmake -S hexl-development -B hexl-development/build \
+    -DHEXL_BENCHMARK=OFF -DHEXL_TESTING=OFF \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build hexl-development/build -j"$(nproc)"
+touch hexl-development
+cd ../..
+make -C .lazer-src lib-static
 ```
+
+`touch hexl-development` stops `make` from repeating the HEXL step. Add
+`CC=gcc-14 CXX=g++-14` to the `make` line if those compilers are installed.
+
+#### 5. Check the result
+
+```sh
+echo "expected: $(cat lazer/LAZER_REVISION)"
+echo "built:    $(git -C .lazer-src rev-parse HEAD)"
+ls -l .lazer-src/liblazer.a
+ls -l .lazer-src/third_party/hexl-development/build/hexl/lib/libhexl.a
+```
+
+The two revisions must match, and both archives must exist.
 
 ### The LaZer-backed tests
 
-Point the three variables below at the LaZer source tree that was just
-built, then run:
-
 ```sh
-LAZER_INCLUDE_DIR=<lazer-source> \
-LAZER_LIB_DIR=<lazer-source> \
-LAZER_HEXL_LIB_DIR=<lazer-source>/third_party/hexl-development/build/hexl/lib \
+LAZER_INCLUDE_DIR=.lazer-src \
+LAZER_LIB_DIR=.lazer-src \
+LAZER_HEXL_LIB_DIR=.lazer-src/third_party/hexl-development/build/hexl/lib \
 cargo test --release --features lazer-ffi -- --test-threads=1
 ```
 
