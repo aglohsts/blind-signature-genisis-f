@@ -20,7 +20,7 @@ pub struct BinaryEncoding {
 }
 
 impl BinaryEncoding {
-    pub fn new(rows: i64, t: i64, modulus: ModulusPolynomialRingZq) -> BinaryEncoding { // samples `B` uniformly; supports `t` in `[1, 62]`
+    pub fn new(rows: i64, t: i64, modulus: ModulusPolynomialRingZq) -> BinaryEncoding { // sample `B` uniformly; supports `t` in `[1, 62]`
         assert!(rows >= 1, "module rank n must be at least 1");
         assert!(
             (1..=62).contains(&t),
@@ -36,11 +36,11 @@ impl BinaryEncoding {
         }
     }
 
-    pub fn input_space(&self) -> Z { // returns the size `2^t` of the input space `M`
+    pub fn input_space(&self) -> Z { // return the size `2^t` of the input space `M`
         Z::from(2).pow(self.t).unwrap()
     }
 
-    fn encode(&self, input: &Z) -> MatZ { // returns the binary decomposition of `input - 1`
+    fn encode(&self, input: &Z) -> MatZ { // return the binary decomposition of `input - 1`
         let value = i64::try_from(&(input - Z::ONE)).unwrap();
         let mut encoding = MatZ::new(self.t, 1);
         for i in 0..self.t {
@@ -57,17 +57,17 @@ impl PublicFunction for BinaryEncoding {
     type Input = Z;
     type Randomness = ();
 
-    fn rows(&self) -> i64 { // returns the module rank `n`
+    fn rows(&self) -> i64 { // return the module rank `n`
         self.rows
     }
 
-    fn modulus(&self) -> &ModulusPolynomialRingZq { // returns the modulus of `R_q`
+    fn modulus(&self) -> &ModulusPolynomialRingZq { // return the modulus of `R_q`
         &self.modulus
     }
 
     fn sample_key(&self) {}
 
-    fn sample_input(&self) -> Z { // samples the function input `mu` from `M`
+    fn sample_input(&self) -> Z { // sample the function input `mu` from `M`
         Z::sample_uniform(Z::ONE, self.input_space() + Z::ONE).unwrap()
     }
 
@@ -85,7 +85,7 @@ impl PublicFunction for BinaryEncoding {
         true
     }
 
-    fn eval(&self, _key: &(), input: &Z, _randomness: &()) -> MatPolynomialRingZq { // evaluates `f(mu)` as an `n x 1` matrix over `R_q`
+    fn eval(&self, _key: &(), input: &Z, _randomness: &()) -> MatPolynomialRingZq { // evaluate `f(mu)` as an `n x 1` matrix over `R_q`
         assert!(self.contains_input(input), "the input is outside M");
         let encoding = MatZq::from((&self.encode(input), self.modulus.get_q()));
         let product = &self.b_mat * &encoding;

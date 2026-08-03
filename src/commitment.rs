@@ -19,7 +19,7 @@ impl CommitmentKey {
         psi: i64,
         rows: i64,
         modulus: &ModulusPolynomialRingZq,
-    ) -> CommitmentKey { // samples uniform `B_1` and `B_2`; `psi` fixes the randomness distribution `chi_r`
+    ) -> CommitmentKey { // sample uniform `B_1` and `B_2`; `psi` fixes the randomness distribution `chi_r`
         assert!(ell_m >= 1, "the message length must be at least 1");
         assert!(
             ell_r >= rows,
@@ -33,7 +33,7 @@ impl CommitmentKey {
         }
     }
 
-    pub fn sample_randomness(&self) -> MatPolyOverZ { // samples `r` from `chi_r^{ell_r}`, coefficients bounded by `psi`
+    pub fn sample_randomness(&self) -> MatPolyOverZ { // sample `r` from `chi_r^{ell_r}`, coefficients bounded by `psi`
         let degree = self.b2.get_mod().get_degree();
         MatPolyOverZ::sample_uniform(
             self.b2.get_num_columns(),
@@ -45,12 +45,12 @@ impl CommitmentKey {
         .unwrap()
     }
 
-    pub fn randomness_bound_sqrd(&self) -> Z { // returns the bound `B_r = psi * sqrt(ell_r * d)` as its square
+    pub fn randomness_bound_sqrd(&self) -> Z { // return the bound `B_r = psi * sqrt(ell_r * d)` as its square
         let degree = self.b2.get_mod().get_degree();
         Z::from(self.psi * self.psi * self.b2.get_num_columns() * degree)
     }
 
-    pub fn commit(&self, message: &MatPolyOverZ, randomness: &MatPolyOverZ) -> MatPolynomialRingZq { // computes `c = B_1 m + B_2 r`
+    pub fn commit(&self, message: &MatPolyOverZ, randomness: &MatPolyOverZ) -> MatPolynomialRingZq { // compute `c = B_1 m + B_2 r`
         assert_eq!(
             (self.b1.get_num_columns(), 1),
             (message.get_num_rows(), message.get_num_columns()),

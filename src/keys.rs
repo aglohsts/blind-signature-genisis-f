@@ -39,7 +39,7 @@ pub fn key_gen<F: PublicFunction>(
     function: F,
     sampler: Sampler,
     parameters: Parameters,
-) -> (PublicKey<F>, SecretKey) { // runs key generation
+) -> (PublicKey<F>, SecretKey) { // run key generation
     assert_eq!(
         sampler.modulus(),
         function.modulus(),

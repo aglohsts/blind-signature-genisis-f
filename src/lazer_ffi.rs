@@ -172,7 +172,7 @@ fn require_len(name: &'static str, actual: usize, expected: usize) -> Result<(),
     }
 }
 
-pub fn version() -> Result<&'static str, Error> { // initialises LaZer and returns the version reported by its C API
+pub fn version() -> Result<&'static str, Error> { // initialise LaZer and return the version reported by its C API
     // SAFETY: The shim initialises LaZer and owns the static version string.
     unsafe {
         status_result(bs_lazer_init())?;
@@ -201,17 +201,17 @@ pub fn final_signature_modulus() -> u64 { // the modulus the final-signature pro
 
 // LaZer's variable-length encoding is followed by canonical zero
 // padding, so the proof size does not leak the witness.
-pub fn proof_len() -> usize { // returns the fixed transport length of the commitment profile
+pub fn proof_len() -> usize { // return the fixed transport length of the commitment profile
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_d64_proof_len() }
 }
 
-pub fn final_signature_proof_capacity() -> usize { // returns the guarded output capacity of the final-signature profile
+pub fn final_signature_proof_capacity() -> usize { // return the guarded output capacity of the final-signature profile
     // SAFETY: Reads constants from the generated profile and C shim.
     unsafe { bs_lazer_sig_d64_proof_capacity() }
 }
 
-pub fn final_signature_proof_len() -> usize { // returns the expected encoded length of the final-signature profile
+pub fn final_signature_proof_len() -> usize { // return the expected encoded length of the final-signature profile
     // SAFETY: Reads a constant from the generated profile.
     unsafe { bs_lazer_sig_d64_proof_len() }
 }
@@ -224,7 +224,7 @@ pub fn prove(
     witness: &[i64],
     ppseed: &[u8; 32],
     coins: Option<&[u8; 32]>,
-) -> Result<Vec<u8>, Error> { // proves the fixed commitment relation
+) -> Result<Vec<u8>, Error> { // prove the fixed commitment relation
     require_len("matrix", a.len(), MATRIX_COEFFICIENTS)?;
     require_len("statement", c.len(), STATEMENT_COEFFICIENTS)?;
     require_len("witness", witness.len(), WITNESS_COEFFICIENTS)?;
@@ -255,7 +255,7 @@ pub fn prove(
     Ok(proof)
 }
 
-// Verifies a proof for the fixed commitment relation.
+// Verify a proof for the fixed commitment relation.
 pub fn verify(a: &[i64], c: &[i64], ppseed: &[u8; 32], proof: &[u8]) -> Result<bool, Error> {
     require_len("matrix", a.len(), MATRIX_COEFFICIENTS)?;
     require_len("statement", c.len(), STATEMENT_COEFFICIENTS)?;
@@ -293,7 +293,7 @@ pub fn prove_final_signature(
     tag: &[i64],
     ppseed: &[u8; 32],
     coins: Option<&[u8; 32]>,
-) -> Result<Vec<u8>, Error> { // proves the fixed coefficient-level relation `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`
+) -> Result<Vec<u8>, Error> { // prove the fixed coefficient-level relation `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`
     require_len(
         "final-signature linear matrix",
         linear.len(),
@@ -343,7 +343,7 @@ pub fn prove_final_signature(
     Ok(proof)
 }
 
-// Verifies a proof for the fixed final-signature relation.
+// Verify a proof for the fixed final-signature relation.
 pub fn verify_final_signature(
     linear: &[i64],
     tag_matrix: &[i64],

@@ -132,7 +132,7 @@ impl FinalSignatureProofProvider<ModuleLweEncoding> for LazerSignatureProvider {
 pub(crate) fn build_statement(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
-) -> Result<Statement, Error> { // serialises `[A | -kappa | -B_2]`, `-G`, and `-B_1 m`
+) -> Result<Statement, Error> { // serialise `[A | -kappa | -B_2]`, `-G`, and `-B_1 m`
     validate_layout(public_key, message)?;
 
     let mut linear = Vec::with_capacity(lazer_ffi::LINEAR_COEFFICIENTS);
@@ -155,7 +155,7 @@ pub(crate) fn build_statement(
     })
 }
 
-pub(crate) fn build_witness(witness: &ModuleLweWitness) -> Result<Witness, Error> { // serialises the bounded block `(s, xi, r)` and the binary `enc(mu)`
+pub(crate) fn build_witness(witness: &ModuleLweWitness) -> Result<Witness, Error> { // serialise the bounded block `(s, xi, r)` and the binary `enc(mu)`
     validate_witness_layout(witness)?;
 
     let mut bounded = Vec::with_capacity(lazer_ffi::FINAL_WITNESS_COEFFICIENTS);

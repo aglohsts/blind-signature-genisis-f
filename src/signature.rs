@@ -46,7 +46,7 @@ pub fn verify<F: PublicFunction>(
     public_key: &PublicKey<F>,
     message: &MatPolyOverZ,
     signature: &Signature<F>,
-) -> bool { // checks the final relation directly on the witness
+) -> bool { // check the final relation directly on the witness
     let degree = public_key.function.modulus().get_degree();
     // Dimensions first, then the norm bounds: the reused products
     // assert both, so an unchecked input would stop the program instead
@@ -115,7 +115,7 @@ pub fn signature_witness(
     public_key: &PublicKey<ModuleLweEncoding>,
     state: UserState,
     response: Response<ModuleLweEncoding>,
-) -> ModuleLweWitness { // builds the hidden witness from an accepted issuing run
+) -> ModuleLweWitness { // build the hidden witness from an accepted issuing run
     ModuleLweWitness {
         encoding: public_key.function.encode(&response.function_input),
         function_randomness: response.function_randomness,
@@ -132,7 +132,7 @@ pub fn finalise_with_provider<P>(
 ) -> Result<ProofSignature<P::Proof>, P::Error>
 where
     P: FinalSignatureProofProvider<ModuleLweEncoding, Witness = ModuleLweWitness>,
-{ // step 4 of the proof-based path: assembles a signature that hides the witness
+{ // step 4 of the proof-based path: assemble a signature that hides the witness
     let message = state.message.clone();
     let witness = signature_witness(public_key, state, response);
     provider
@@ -148,7 +148,7 @@ pub fn verify_with_provider<P>(
 ) -> bool
 where
     P: FinalSignatureProofProvider<ModuleLweEncoding>,
-{ // verifies a proof-based signature against its public message
+{ // verify a proof-based signature against its public message
     provider.verify(public_key, message, &signature.proof)
 }
 
@@ -159,7 +159,7 @@ pub fn relation_holds(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
     witness: &ModuleLweWitness,
-) -> bool { // checks `R_sig` on the witness without producing a proof
+) -> bool { // check `R_sig` on the witness without producing a proof
     let function = &public_key.function;
     let degree = function.modulus().get_degree();
     if !has_layout(

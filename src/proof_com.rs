@@ -38,7 +38,7 @@ pub fn prove(
     message: &MatPolyOverZ,
     randomness: &MatPolyOverZ,
     commitment: &MatPolynomialRingZq,
-) -> Proof { // proves knowledge of the opening `(m, r)` of `c`
+) -> Proof { // prove knowledge of the opening `(m, r)` of `c`
     let degree = key.b1.get_mod().get_degree();
     let bound = parameters.response_inf(degree);
     assert!(bound > 0, "mask_inf must exceed degree times witness_inf");
@@ -71,7 +71,7 @@ pub fn verify(
     parameters: &ProofParameters,
     commitment: &MatPolynomialRingZq,
     proof: &Proof,
-) -> bool { // verifies a proof for the commitment `c`
+) -> bool { // verify a proof for the commitment `c`
     let degree = key.b1.get_mod().get_degree();
     let bound = Z::from(parameters.response_inf(degree));
     if proof.message_response.get_num_rows() != key.b1.get_num_columns()
@@ -111,7 +111,7 @@ fn challenge_of(
     key: &CommitmentKey,
     commitment: &MatPolynomialRingZq,
     masked: &MatPolynomialRingZq,
-) -> PolyOverZ { // derives a challenge with coefficients in {-1, 0, 1}
+) -> PolyOverZ { // derive a challenge with coefficients in {-1, 0, 1}
     let degree = key.b1.get_mod().get_degree();
     let input = format!("pi_com|{}|{}|{}|{}", key.b1, key.b2, commitment, masked);
     let digest = hash_to_mat_zq_sha256(&input, degree, 1, 3)
@@ -124,7 +124,7 @@ fn challenge_of(
     challenge
 }
 
-fn multiply(challenge: &PolyOverZ, vector: &MatPolyOverZ, degree: i64) -> MatPolyOverZ { // multiplies every entry by the challenge in Z[X]/(X^d + 1)
+fn multiply(challenge: &PolyOverZ, vector: &MatPolyOverZ, degree: i64) -> MatPolyOverZ { // multiply every entry by the challenge in Z[X]/(X^d + 1)
     let mut ring_modulus = PolyOverZ::default();
     ring_modulus.set_coeff(0, 1).unwrap();
     ring_modulus.set_coeff(degree, 1).unwrap();

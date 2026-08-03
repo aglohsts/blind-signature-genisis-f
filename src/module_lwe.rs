@@ -33,7 +33,7 @@ pub struct ModuleLweEncoding {
 }
 
 impl ModuleLweEncoding {
-    // Samples the encoding matrix `G`. The input space is `[2^t]`, so
+    // Sample the encoding matrix `G`. The input space is `[2^t]`, so
     // `t` is bounded as in the binary encoding. The function
     // randomness has `ell_xi` entries with coefficients bounded by
     // `psi_xi`.
@@ -60,31 +60,31 @@ impl ModuleLweEncoding {
         }
     }
 
-    pub fn input_space(&self) -> Z { // returns the size `2^t` of the input space `M`
+    pub fn input_space(&self) -> Z { // return the size `2^t` of the input space `M`
         Z::from(2).pow(self.t).unwrap()
     }
 
-    pub fn bits(&self) -> i64 { // returns the number of encoded bits `t`
+    pub fn bits(&self) -> i64 { // return the number of encoded bits `t`
         self.t
     }
 
-    pub fn randomness_length(&self) -> i64 { // returns the length `ell_xi` of the function randomness
+    pub fn randomness_length(&self) -> i64 { // return the length `ell_xi` of the function randomness
         self.ell_xi
     }
 
-    pub fn randomness_bound_sqrd(&self) -> Z { // returns the bound `B_xi = psi_xi * sqrt(ell_xi * d)` as its square
+    pub fn randomness_bound_sqrd(&self) -> Z { // return the bound `B_xi = psi_xi * sqrt(ell_xi * d)` as its square
         let degree = self.modulus.get_degree();
         Z::from(self.psi_xi * self.psi_xi * self.ell_xi * degree)
     }
 
     // The LaZer statement builder reads it column by column.
-    pub fn encoding_matrix(&self) -> &MatZq { // returns the encoding matrix `G` in its coefficient embedding
+    pub fn encoding_matrix(&self) -> &MatZq { // return the encoding matrix `G` in its coefficient embedding
         &self.g_mat
     }
 
     // This is the binary part of the witness of the final-signature
     // relation.
-    pub fn encode(&self, input: &Z) -> MatZ { // returns the binary decomposition of `input - 1` as a `t x 1` integer matrix
+    pub fn encode(&self, input: &Z) -> MatZ { // return the binary decomposition of `input - 1` as a `t x 1` integer matrix
         assert!(self.contains_input(input), "the input is outside M");
         let bits = (input - Z::ONE).to_bits();
         let mut encoding = MatZ::new(self.t, 1);
@@ -97,7 +97,7 @@ impl ModuleLweEncoding {
 
     // The LaZer statement uses this term separately from the masking
     // term.
-    pub fn eval_encoding(&self, encoding: &MatZ) -> Option<MatPolynomialRingZq> { // evaluates the encoding term `G * enc(mu)` on its own
+    pub fn eval_encoding(&self, encoding: &MatZ) -> Option<MatPolynomialRingZq> { // evaluate the encoding term `G * enc(mu)` on its own
         if encoding.get_num_rows() != self.t || encoding.get_num_columns() != 1 {
             return None;
         }

@@ -135,7 +135,7 @@ mod lazer {
 
     // The profile is fixed at code-generation time, so a mismatch
     // cannot be repaired at run time.
-    fn validate_profile<F: PublicFunction>(public_key: &PublicKey<F>) -> Result<(), Error> { // checks that the public key matches the generated profile
+    fn validate_profile<F: PublicFunction>(public_key: &PublicKey<F>) -> Result<(), Error> { // check that the public key matches the generated profile
         let modulus = public_key.function.modulus();
         let expected = new_anticyclic(lazer_ffi::DEGREE as i64, lazer_ffi::MODULUS).unwrap();
         if modulus != &expected {

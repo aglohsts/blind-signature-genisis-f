@@ -22,13 +22,13 @@ pub trait PublicFunction {
     // The modulus of `R_q`.
     fn modulus(&self) -> &ModulusPolynomialRingZq;
 
-    // Samples the function key `kappa` from `K`.
+    // Sample the function key `kappa` from `K`.
     fn sample_key(&self) -> Self::Key;
 
-    // Samples the function input `mu` from `M`.
+    // Sample the function input `mu` from `M`.
     fn sample_input(&self) -> Self::Input;
 
-    // Samples the function randomness `xi` from `X`.
+    // Sample the function randomness `xi` from `X`.
     fn sample_randomness(&self) -> Self::Randomness;
 
     // Whether `key` lies in `K`.
@@ -40,7 +40,7 @@ pub trait PublicFunction {
     // Whether `randomness` lies in `X`.
     fn contains_randomness(&self, randomness: &Self::Randomness) -> bool;
 
-    // Evaluates `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`.
+    // Evaluate `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`.
     fn eval(
         &self,
         key: &Self::Key,

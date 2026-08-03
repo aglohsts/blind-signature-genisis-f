@@ -44,7 +44,7 @@ const MESSAGE_BITS: i64 = ELL_M * D;
 
 // Every coefficient is 0 or 1, so the squared norm is the number of
 // ones and never exceeds the bound.
-fn encode(text: &str) -> (MatPolyOverZ, String) { // hashes text into the message space
+fn encode(text: &str) -> (MatPolyOverZ, String) { // hash text into the message space
     let bits = hash_to_mat_zq_sha256(text, MESSAGE_BITS, 1, 2)
         .get_representative_least_nonnegative_residue();
 
@@ -67,7 +67,7 @@ fn sign_and_report(
     public_key: &PublicKey<HashToRing>,
     secret_key: &SecretKey,
     text: &str,
-) { // runs the four steps of the protocol on one message and reports each
+) { // run the four steps of the protocol on one message and report each
     let (message, bits) = encode(text);
     println!("  message as bits          {bits}");
 
@@ -132,7 +132,7 @@ fn sign_and_report(
 }
 
 // Everything else is returned in order and treated as a message.
-fn parse_arguments() -> Result<(Sampling, Vec<String>), String> { // splits `--sampler=<mode>` out of the arguments
+fn parse_arguments() -> Result<(Sampling, Vec<String>), String> { // split `--sampler=<mode>` out of the arguments
     let mut sampling = Sampling::default();
     let mut messages = Vec::new();
     let mut arguments = std::env::args().skip(1);

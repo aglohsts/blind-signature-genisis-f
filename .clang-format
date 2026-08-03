@@ -1,0 +1,12 @@
+# GNU spacing (a space before parentheses), but with the brace attached
+# to the signature line and a four-space indent.
+BasedOnStyle: GNU
+BreakBeforeBraces: Attach
+BreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 10000
+AllowShortFunctionsOnASingleLine: None
+AlignOperands: DontAlign
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 79

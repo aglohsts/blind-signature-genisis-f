@@ -72,7 +72,7 @@ fn fresh_keys_with(sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
 // These are the only two steps the choice of sampler reaches: the
 // commitment, the proof, the user check and verification never touch
 // the trapdoor.
-fn measure_sampler(sampling: Sampling) -> (f64, f64) { // times key generation and one signer response under one sampler
+fn measure_sampler(sampling: Sampling) -> (f64, f64) { // time key generation and one signer response under one sampler
     let keygen_ms = time_ms(SAMPLER_REPS, || fresh_keys_with(sampling));
     let (public_key, secret_key) = fresh_keys_with(sampling);
     let message = MatPolyOverZ::sample_uniform(ELL_M, 1, D - 1, 0, 2).unwrap();

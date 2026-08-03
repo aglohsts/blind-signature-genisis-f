@@ -21,7 +21,7 @@ impl HashToRing {
         randomness_space: impl Into<Z>,
         modulus: ModulusPolynomialRingZq,
         domain_separator: impl Into<String>,
-    ) -> HashToRing { // creates the function for the given space sizes
+    ) -> HashToRing { // create the function for the given space sizes
         let key_space = key_space.into();
         let input_space = input_space.into();
         let randomness_space = randomness_space.into();
@@ -51,23 +51,23 @@ impl PublicFunction for HashToRing {
     type Input = Z;
     type Randomness = Z;
 
-    fn rows(&self) -> i64 { // returns the module rank `n`
+    fn rows(&self) -> i64 { // return the module rank `n`
         self.hasher.rows
     }
 
-    fn modulus(&self) -> &ModulusPolynomialRingZq { // returns the modulus of `R_q`
+    fn modulus(&self) -> &ModulusPolynomialRingZq { // return the modulus of `R_q`
         &self.hasher.modulus
     }
 
-    fn sample_key(&self) -> Z { // samples the function key `kappa` from `K`
+    fn sample_key(&self) -> Z { // sample the function key `kappa` from `K`
         sample_in(&self.key_space)
     }
 
-    fn sample_input(&self) -> Z { // samples the function input `mu` from `M`
+    fn sample_input(&self) -> Z { // sample the function input `mu` from `M`
         sample_in(&self.input_space)
     }
 
-    fn sample_randomness(&self) -> Z { // samples the function randomness `xi` from `X`
+    fn sample_randomness(&self) -> Z { // sample the function randomness `xi` from `X`
         sample_in(&self.randomness_space)
     }
 
@@ -83,7 +83,7 @@ impl PublicFunction for HashToRing {
         is_in(randomness, &self.randomness_space)
     }
 
-    fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq { // evaluates `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`
+    fn eval(&self, key: &Z, input: &Z, randomness: &Z) -> MatPolynomialRingZq { // evaluate `f(kappa, mu, xi)` as an `n x 1` matrix over `R_q`
         assert!(self.contains_key(key), "the key is outside K");
         assert!(self.contains_input(input), "the input is outside M");
         assert!(

@@ -33,7 +33,7 @@ use qfall_tools::utils::rotation_matrix::rot_minus_matrix;
 // those columns for a coarser gadget: `m` falls to
 // `log_base(q) + 2`, which is what brings the orthogonalisation
 // within reach, and the Gaussian width has to grow to match.
-pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetParametersRing { // builds gadget parameters for a chosen base
+pub fn gadget_parameters(degree: i64, modulus: u64, log_base: u32) -> GadgetParametersRing { // build gadget parameters for a chosen base
     assert!(log_base >= 1, "the gadget base must be at least 2");
     let mut parameters = GadgetParametersRing::init_default(degree, modulus);
     if log_base > 1 {
@@ -71,7 +71,7 @@ impl Sampling {
         }
     }
 
-    pub fn parse(value: &str) -> Option<Sampling> { // parses a command-line value; `None` if it is not a mode
+    pub fn parse(value: &str) -> Option<Sampling> { // parse a command-line value; `None` if it is not a mode
         match value {
             "stored" | "stored-basis" | "fast" => Some(Sampling::StoredBasis),
             "per-call" | "percall" | "reused" => Some(Sampling::PerCall),
@@ -152,7 +152,7 @@ impl Sampler {
     // The target-independent work is the short basis, its
     // orthogonalisation, and the rotation matrix that turns the ring
     // equation into an integer one.
-    pub fn trap_gen(&self) -> (MatPolynomialRingZq, Trapdoor) { // samples `A` with its trapdoor, and does the target-independent work
+    pub fn trap_gen(&self) -> (MatPolynomialRingZq, Trapdoor) { // sample `A` with its trapdoor, and do the target-independent work
         let degree = self.psf.gp.modulus.get_degree();
         let (a, (r, e)) = self.psf.trap_gen();
 
@@ -181,7 +181,7 @@ impl Sampler {
         )
     }
 
-    pub fn samp_p(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ { // samples a short `s` with `A s = target`, through whichever of the two samplers this key was built with
+    pub fn samp_p(&self, trapdoor: &Trapdoor, target: &MatPolynomialRingZq) -> MatPolyOverZ { // sample a short `s` with `A s = target`, through whichever of the two samplers this key was built with
         match self.sampling {
             Sampling::StoredBasis => self.samp_p_stored(trapdoor, target),
             Sampling::PerCall => self.samp_p_per_call(trapdoor, target),
@@ -233,7 +233,7 @@ impl Sampler {
         self.psf.check_domain(preimage)
     }
 
-    pub fn f_a(&self, a: &MatPolynomialRingZq, preimage: &MatPolyOverZ) -> MatPolynomialRingZq { // computes `A s`
+    pub fn f_a(&self, a: &MatPolynomialRingZq, preimage: &MatPolyOverZ) -> MatPolynomialRingZq { // compute `A s`
         self.psf.f_a(a, preimage)
     }
 
