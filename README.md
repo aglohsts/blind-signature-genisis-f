@@ -166,10 +166,28 @@ The pinned revision has two bugs that stop the proof layer from working.
 `lazer/README.md` explains both.
 
 ```sh
-for p in lazer/patches/*.patch; do
-    patch --directory=.lazer-src --strip=1 --input="$p"
+for p in "$PWD"/lazer/patches/*.patch; do
+    patch --directory=.lazer-src --strip=1 --forward --input="$p"
 done
 ```
+
+Two details in that command matter. The path must be absolute, because
+`--directory` changes directory before it opens the patch file, so a
+relative path is looked for inside `.lazer-src` and is not found.
+`--forward` makes `patch` skip a hunk that is already applied instead of
+asking whether to reverse it, so the step can be repeated safely.
+
+Check that both patches are in place before building:
+
+```sh
+grep -c 'R2prime + EVALEQ_INPUT_OFF' .lazer-src/src/lnp.c      # expect 2
+grep -c 'zero unset bits in first byte' .lazer-src/src/coder.c # expect 2
+```
+
+If either count is zero, or if `patch` left `.rej` files, delete
+`.lazer-src` and start again from step 1. A half-patched tree builds
+without complaint and then fails inside the proof layer, which is much
+harder to diagnose.
 
 #### 3. Point the compiler at GMP and MPFR
 
