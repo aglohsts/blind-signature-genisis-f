@@ -22,8 +22,11 @@ measurements, and the appendix lists the modules and the tests.
 | LaZer | zero-knowledge proof systems | <https://github.com/lazer-crypto/lazer> |
 | Rust toolchain | edition 2024, so version 1.85 or newer | <https://rustup.rs> |
 
-qFALL is fetched by Cargo, so it needs no separate installation. 
-LaZer is a C library and must be built by hand, see *Building LaZer* below.
+qFALL is fetched by Cargo, so it needs no separate installation. LaZer is
+a C library and is not on crates.io, so its source is vendored in
+`third_party/lazer` at a pinned revision and `build.rs` builds it; see
+*The LaZer-backed proof layer* below. Nothing is fetched from the network
+at build time.
 
 ## Environment
 
@@ -56,8 +59,9 @@ MPFR from source during the first Cargo build. GMP and MPFR are therefore
 not needed as system packages, and the LaZer build can reuse the copy that
 Cargo produced, so the project builds without root access.
 
-Building LaZer needs `git`, `cmake`, `patch` and `unzip` in addition. Its
-own repository lists what it requires; see *Building LaZer* below.
+Building LaZer needs `cmake`, `make`, `patch` and `unzip` in addition.
+`build.rs` checks for each of these before it starts and names the one
+that is missing, rather than failing part-way through a build.
 
 ## Running the prototype
 
@@ -133,117 +137,68 @@ cargo run --release --bin parameters -- 64 288230376151713349 256
 - `parameters` reports the gadget base, the Gaussian parameter, the norm
 bound and the modulus that the proof system needs.
 
-### Building LaZer
+### The LaZer-backed proof layer
 
-LaZer is a C library and is not fetched by Cargo, so it must be built once
-before the proof layer can be used. Its own repository is
-<https://github.com/lazer-crypto/lazer>, and its instructions take
-precedence if they differ from the steps below.
-
-A plain `git clone` of that repository is not enough. This project needs one
-pinned revision and two patches on top of it, so run the five steps here.
-They take 5 to 15 minutes and are run from the project root.
-
-#### 1. Fetch the pinned revision
-
-Later revisions may change the generated proof profiles, which the relation
-encodings depend on, so the exact commit in `lazer/LAZER_REVISION` is used.
+The two NIZK proof systems are built on LaZer, a C library. Its source is
+in `third_party/lazer`, at the revision pinned in `lazer/LAZER_REVISION`,
+so nothing is fetched from the network and one command builds and runs
+everything:
 
 ```sh
-git init .lazer-src
-git -C .lazer-src remote add origin https://github.com/lazer-crypto/lazer.git
-git -C .lazer-src fetch --depth 1 origin $(cat lazer/LAZER_REVISION)
-git -C .lazer-src checkout --detach FETCH_HEAD
-git -C .lazer-src submodule update --init --recursive
-```
-
-`.lazer-src` is ignored by git and takes about 0.5 GB. LaZer has submodules
-of its own, which is why the last line is needed.
-
-#### 2. Apply the two patches
-
-The pinned revision has two bugs that stop the proof layer from working.
-`lazer/README.md` explains both.
-
-```sh
-for p in "$PWD"/lazer/patches/*.patch; do
-    patch --directory=.lazer-src --strip=1 --forward --input="$p"
-done
-```
-
-Two details in that command matter. The path must be absolute, because
-`--directory` changes directory before it opens the patch file, so a
-relative path is looked for inside `.lazer-src` and is not found.
-`--forward` makes `patch` skip a hunk that is already applied instead of
-asking whether to reverse it, so the step can be repeated safely.
-
-Check that both patches are in place before building:
-
-```sh
-grep -c 'R2prime + EVALEQ_INPUT_OFF' .lazer-src/src/lnp.c      # expect 2
-grep -c 'zero unset bits in first byte' .lazer-src/src/coder.c # expect 2
-```
-
-If either count is zero, or if `patch` left `.rej` files, delete
-`.lazer-src` and start again from step 1. A half-patched tree builds
-without complaint and then fails inside the proof layer, which is much
-harder to diagnose.
-
-#### 3. Point the compiler at GMP and MPFR
-
-Only needed if `mpfr.h` is not already on the system. qFALL built a copy
-during `cargo test`:
-
-```sh
-export CPATH=$(dirname $(find target -path '*gmp-mpfr-sys*/out/include/mpfr.h' | head -1))
-export LIBRARY_PATH=$(dirname $CPATH)/lib
-```
-
-#### 4. Build the vendored HEXL, then LaZer
-
-HEXL is built first. Its `cmake_minimum_required` is too old for CMake 4,
-and the last option below works around that. The error message without it is
-unclear, which is why the step is spelled out.
-
-```sh
-cd .lazer-src/third_party
-unzip -q -o hexl-development.zip
-cmake -S hexl-development -B hexl-development/build \
-    -DHEXL_BENCHMARK=OFF -DHEXL_TESTING=OFF \
-    -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build hexl-development/build -j"$(nproc)"
-touch hexl-development
-cd ../..
-make -C .lazer-src lib-static
-```
-
-`touch hexl-development` stops `make` from repeating the HEXL step. Add
-`CC=gcc-14 CXX=g++-14` to the `make` line if those compilers are installed.
-
-#### 5. Check the result
-
-```sh
-echo "expected: $(cat lazer/LAZER_REVISION)"
-echo "built:    $(git -C .lazer-src rev-parse HEAD)"
-ls -l .lazer-src/liblazer.a
-ls -l .lazer-src/third_party/hexl-development/build/hexl/lib/libhexl.a
-```
-
-The two revisions must match, and both archives must exist.
-
-### The LaZer-backed tests
-
-```sh
-LAZER_INCLUDE_DIR=.lazer-src \
-LAZER_LIB_DIR=.lazer-src \
-LAZER_HEXL_LIB_DIR=.lazer-src/third_party/hexl-development/build/hexl/lib \
 cargo test --release --features lazer-ffi -- --test-threads=1
 ```
 
 Single-threaded, because LaZer keeps process-wide state behind a one-time
-initialiser. This adds 14 tests. Key generation at `d = 64` dominates the
-runtime, so the suite takes 20 to 30 minutes and is quiet for long
-stretches.
+initialiser. This adds 14 tests. The C library is built on the first run
+and takes 5 to 15 minutes; after that it is cached with the rest of the
+build. Key generation at `d = 64` then dominates the run, so the suite
+takes 20 to 30 minutes and is quiet for long stretches.
+
+Beyond the toolchain above, this needs `cmake`, `make`, `patch` and
+`unzip`. `build.rs` checks for each before it starts and names the one
+that is missing.
+
+#### What that command does
+
+The steps are worth knowing, because two of them are not obvious and both
+are discussed in the report. `build.rs` performs them in order, printing
+as it goes:
+
+1. **Copy** `third_party/lazer` into Cargo's output directory. The
+   vendored copy stays untouched, and a failed build can be restarted by
+   deleting `target`.
+2. **Apply** `lazer/patches/*.patch`. The pinned revision has two defects
+   that stop the proof layer working, and `lazer/README.md` explains
+   both. They are kept as patches rather than shipped pre-applied, so
+   that what was changed can be read in two short files.
+   Each patch is then checked by counting a line it inserts, because a
+   half-patched tree compiles without complaint and fails later inside
+   the proof layer, which is much harder to diagnose.
+3. **Build the vendored HEXL** with `cmake`, passing
+   `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`. LaZer's own Makefile builds HEXL
+   too, but without that option, and HEXL declares a
+   `cmake_minimum_required` that CMake 4 refuses. The error without it is
+   unclear, which is why this step is taken here instead.
+4. **Run `make lib-static`**, with `CPATH` and `LIBRARY_PATH` pointed at
+   the GMP and MPFR that `gmp-mpfr-sys` built during step 1 of this
+   README. Those are the two libraries LaZer needs, and a shared machine
+   often has neither installed; reusing Cargo's copy means the build
+   needs no root.
+
+#### Reusing a LaZer tree that is already built
+
+Set all three of these and `build.rs` will link against that tree instead
+of building the vendored one:
+
+```sh
+LAZER_INCLUDE_DIR=<dir with lazer.h> \
+LAZER_LIB_DIR=<dir with liblazer.a> \
+LAZER_HEXL_LIB_DIR=<dir with libhexl.a> \
+cargo test --release --features lazer-ffi -- --test-threads=1
+```
+
+Setting some but not all three is an error rather than a partial
+override, so a stale variable cannot silently half-apply.
 
 `lazer/README.md` documents the two patches, the two generated parameter
 profiles, and how to regenerate them with SageMath.
@@ -267,7 +222,9 @@ src/util.rs                    the two norms used by every bound check
 src/main.rs                    the interactive demo
 src/bin/bench.rs               step timings and size estimates
 src/bin/parameters.rs          the width, bound and modulus a base implies
-lazer/                         pinned revision, patches, C shims, and profiles
+lazer/                         patches, C shims, and the two proof profiles
+third_party/lazer/             the pinned LaZer source, unmodified
+build.rs                       builds LaZer, then compiles and links the shims
 tests/protocol.rs              the protocol through the public interface
 tests/lazer_protocol.rs        the same, with both proofs produced by LaZer
 ```
