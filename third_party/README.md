@@ -18,7 +18,13 @@ The revision is pinned because later ones may change the generated proof
 profiles, and the relation encodings in `src/signature/lazer_statement.rs`
 depend on the dimensions those profiles fix.
 
-### It is unmodified
+### What was removed, and what was not
+
+Three files of git housekeeping are left out: the two `.gitignore`
+files, which describe build output that is not present in a snapshot,
+and `.gitmodules`, which would say that `lazer/src/labrados` has to be
+fetched when its content is already here. Nothing else is changed, and
+no source file is.
 
 The two defects described in the report are corrected by
 `../lazer/patches/*.patch`, which `build.rs` applies to a copy of this

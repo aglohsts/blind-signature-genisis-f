@@ -1,0 +1,4 @@
+# Kept in the repository, left out of `git archive`, which is how the
+# submission archive is produced. Neither is of any use without git.
+.gitignore export-ignore
+.gitattributes export-ignore
