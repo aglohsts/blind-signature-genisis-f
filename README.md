@@ -1,17 +1,17 @@
 # blind-sig-genisis-f-prototype
 
-A prototype of the round-optimal lattice-based blind signature described in
-the report chapter *A Blind Signature from GenISIS_f*. 
-The issuing protocol has one round. 
-The user sends a commitment together with a proof that it knows how to open it. 
-The signer returns a function input, a function randomness, and a short preimage.
+This is a prototype of the round-optimal lattice-based blind signature
+described in the report chapter *A Blind Signature from GenISIS_f*.
 
-The prototype treats the public function `f` as a pluggable component, and
-three instantiations are provided. 
-It also carries two proof systems for the commitment relation, 
-one written for this project and one built on LaZer.
+The issuing protocol has one round. The user sends a commitment and a
+proof that it knows how to open that commitment. The signer replies with
+a function input, a function randomness, and a short preimage.
 
-Chapter 7 of the report explains the design. Chapter 8 reports the
+The public function `f` is a pluggable component, and three versions of
+it are provided. There are also two proof systems for the commitment
+relation. One is written for this project, and one is built on LaZer.
+
+Chapter 7 of the report explains the design. Chapter 8 gives the
 measurements, and the appendix lists the modules and the tests.
 
 ## Libraries
@@ -22,47 +22,49 @@ measurements, and the appendix lists the modules and the tests.
 | LaZer | zero-knowledge proof systems | <https://github.com/lazer-crypto/lazer> |
 | Rust toolchain | edition 2024, so version 1.85 or newer | <https://rustup.rs> |
 
-qFALL is fetched by Cargo, so it needs no separate installation. LaZer is
-a C library and is not on crates.io, so its source is vendored in
-`third_party/lazer` at a pinned revision and `build.rs` builds it; see
-*The LaZer-backed proof layer* below. Nothing is fetched from the network
-at build time.
+Cargo downloads qFALL, so you do not need to install it yourself.
+
+LaZer is a C library and is not on crates.io. Its source code is included
+in this project, in `third_party/lazer`, at one fixed revision. `build.rs`
+builds it for you. Nothing is downloaded from the internet during the
+build.
 
 ## Environment
 
-**The prototype needs Linux on x86-64 to run in full.** 
-The limit comes from the reused libraries and not from the scheme.
+**You need Linux on x86-64 to run the whole project.** This limit comes
+from the libraries it reuses, not from the scheme itself.
 
-* **Linux, not Windows.** qFALL's FLINT binding rejects the native
-  Windows toolchain: its build script stops with *"Windows MSVC target is
-  not supported (linking would fail)"*. The Windows Subsystem for Linux
-  works, and on an x86-64 machine it is a native Linux environment rather
-  than an emulated one, so everything here runs inside it.
-* **x86-64, not arm64.** The pinned LaZer revision targets x86-64. Its
-  header `lazer.h` includes `immintrin.h`, so on arm64 the C compiler stops
-  with *"This header is only meant to be used on x86 and x64 architecture"*
-  before it reads any project code.
+* **Linux, not Windows.** The FLINT binding used by qFALL does not
+  support the native Windows toolchain. Its build script stops with the
+  message *"Windows MSVC target is not supported (linking would fail)"*.
+  You can use the Windows Subsystem for Linux instead. On an x86-64
+  machine, WSL is a real Linux environment and not an emulated one, so
+  everything here works inside it.
+* **x86-64, not arm64.** The fixed LaZer revision is written for x86-64.
+  Its header `lazer.h` includes `immintrin.h`. On arm64, the C compiler
+  stops with the message *"This header is only meant to be used on x86
+  and x64 architecture"* before it reads any project code.
 
-The scheme runs anywhere qFALL runs, including an arm64 Mac. 
-Only the LaZer proof layer is restricted.
+Step 2 below runs on any machine that qFALL supports, including an arm64
+Mac. Only Step 3, the LaZer proof layer, has these limits.
 
-The reference machine is Ubuntu 24.04 LTS on 8 x86-64 cores, with GCC 13
-and rustc 1.97.
+The reference machine is Ubuntu 24.04 LTS with 8 x86-64 cores, GCC 13 and
+rustc 1.97.
 
-## How long the whole thing takes
+## How long this takes
 
-Two of the steps below are long, and both are quiet while they run. The
-figures are from the reference machine, an 8-core x86-64 Linux box.
+Two steps below take a long time, and both are silent while they run. The
+times come from the reference machine.
 
 | Step | First run | Later runs |
 |---|---|---|
 | 1. Install the toolchain | 5 min | — |
-| 2. `cargo test` | 10 to 20 min, compiling FLINT, GMP and MPFR | a few seconds |
-| 3. `cargo test --features lazer-ffi` | 5 to 15 min building LaZer, then 20 to 30 min running | 20 to 30 min |
+| 2. `cargo test` | 10 to 20 min, because it compiles FLINT, GMP and MPFR | a few seconds |
+| 3. `cargo test --features lazer-ffi` | 5 to 15 min to build LaZer, then 20 to 30 min to run | 20 to 30 min |
 
-Step 3 is long because it generates one key at ring degree 64, which
-takes about 16 minutes on its own. Nothing is wrong if it prints nothing
-for a quarter of an hour.
+Step 3 is slow because it generates one key at ring degree 64, and that
+alone takes about 16 minutes. If it prints nothing for 15 minutes,
+nothing is wrong.
 
 ## Step 1: install the toolchain
 
@@ -70,17 +72,20 @@ On Ubuntu or Debian:
 
 ```sh
 sudo apt-get update
+```
+
+```sh
 sudo apt-get install -y build-essential curl cmake unzip patch
 ```
 
-The equivalents elsewhere are a C and C++ compiler, `make`, `cmake`,
-`unzip` and `patch`. On a departmental machine these are usually present
-already.
+On other systems you need a C and C++ compiler, `make`, `cmake`, `unzip`
+and `patch`. University machines usually have all of them already.
 
-Then install Rust. Use `rustup` rather than the distribution's package:
-this crate uses edition 2024 and needs Rust 1.85 or newer, while
-`apt install cargo` on Ubuntu 24.04 gives 1.75. `rustup` installs under
-`$HOME` and needs no root.
+Next, install Rust. Please use `rustup` and not the package from your
+distribution. This project uses edition 2024 and needs Rust 1.85 or
+newer, but `apt install cargo` on Ubuntu 24.04 gives version 1.75.
+`rustup` installs into your home directory, so you do not need root
+access.
 
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -90,17 +95,17 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . "$HOME/.cargo/env"
 ```
 
-**GMP and MPFR are deliberately absent from that list.** qFALL depends on
-`flint-sys` and `gmp-mpfr-sys`, which compile FLINT, GMP and MPFR from
-source during Step 2. The LaZer build in Step 3 then reuses that copy, so
-neither is needed as a system package and the whole project builds
-without root access.
+**GMP and MPFR are not in the list above, and this is on purpose.** qFALL
+depends on `flint-sys` and `gmp-mpfr-sys`, and these compile FLINT, GMP
+and MPFR from source during Step 2. The LaZer build in Step 3 then reuses
+that copy. This means you do not need them as system packages, and the
+whole project builds without root access.
 
-### Checking before you start
+### Check before you start
 
-Every line here must print a version. `build.rs` checks the same tools
-before it starts and names the one that is missing, but finding out now
-is quicker.
+Each command below should print a version number. `build.rs` checks for
+the same tools before it starts and tells you which one is missing, but
+it is faster to find out now.
 
 ```sh
 uname -s -m
@@ -114,7 +119,8 @@ rustc --version && cargo --version
 cc --version | head -1 && make --version | head -1 && cmake --version | head -1
 ```
 
-The first must print `Linux x86_64`, and the second `1.85` or newer.
+The first command must print `Linux x86_64`. The second must print 1.85
+or a later version.
 
 ## Step 2: the scheme and its tests
 
@@ -122,25 +128,25 @@ The first must print `Linux x86_64`, and the second `1.85` or newer.
 cargo test
 ```
 
-This runs 71 tests: 64 unit tests and 7 integration tests. It needs no
-LaZer libraries, because the `lazer-ffi` feature is off by default, and
-so it runs on any platform qFALL supports, including an arm64 Mac. The
-last lines should read:
+This runs 71 tests: 64 unit tests and 7 integration tests. It does not
+need LaZer, because the `lazer-ffi` feature is off by default. The last
+lines should be:
 
 ```text
 test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-An interactive run, which prints the 4 protocol steps and then checks the
-signature against a different message so that the rejection is visible:
+You can also run the protocol yourself. The command below prints the 4
+protocol steps. It then checks the signature against a different message,
+so that you can see the rejection happen.
 
 ```sh
 cargo run --release --bin blind-sig -- "hello world"
 ```
 
-It opens with a description of what a blind signature is and what each
-step does, and ends with the trace:
+The program first explains what a blind signature is and what each step
+does. It then prints this:
 
 ```text
 Key setup (once)                        kappa = 807    137.25 ms
@@ -155,35 +161,38 @@ message: hello world
           same signature, message "hello world " -> rejected, as it should be
 ```
 
-These are toy parameters (`d = 8`, `q = 257`) and are not
-cryptographically sized. Chapter 8 of the report gives the full timings and
-sizes.
+These are toy parameters (`d = 8`, `q = 257`). They are not
+cryptographically sized. Chapter 8 of the report gives the full timings
+and sizes.
 
-## Step 3: the LaZer-backed proof layer
+## Step 3: the LaZer proof layer
 
-The two NIZK proof systems are built on LaZer, a C library that is not on
-crates.io. Its source is vendored in `third_party/lazer` at the revision
-pinned in `lazer/LAZER_REVISION`, so nothing is fetched from the network
-and **one command builds it and runs the tests**:
+The two zero-knowledge proof systems are built on LaZer. Its source code
+is in `third_party/lazer`, at the revision listed in
+`lazer/LAZER_REVISION`. Nothing is downloaded, so **one command builds
+the library and runs the tests**:
 
 ```sh
 cargo test --release --features lazer-ffi -- --test-threads=1
 ```
 
-Single-threaded, because LaZer keeps process-wide state behind a one-time
-initialiser. `--release` is not optional here: a debug build of the
-degree-64 key generation takes hours.
+The tests run one at a time because LaZer keeps state for the whole
+process behind a setup function that runs only once. You also need
+`--release` here. In a debug build, the key generation at degree 64 takes
+several hours.
 
-The first thing printed is a warning from the build script, which is the
-only channel Cargo gives it:
+The first message you see comes from the build script:
 
 ```text
 warning: building the LaZer library from third_party/lazer. This runs once
 and takes 5 to 15 minutes.
 ```
 
-That is expected, not a problem. After it, the suite runs for 20 to 30
-minutes and ends with 85 tests, 14 more than Step 2:
+This is normal. Cargo gives build scripts no other way to print a
+message, so the text appears as a warning.
+
+After that, the tests run for 20 to 30 minutes. They end with 85 tests,
+which is 14 more than Step 2:
 
 ```text
 test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -191,114 +200,141 @@ test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
-To see the stage timings and the encoded proof size of the degree-64
-run, which are the figures Chapter 8 reports, add `--nocapture` after the
-flags that are already there:
+During the run, LaZer prints this line many times:
+
+```text
+WARNING: A completely filled lookup table will exceed 2^16 entries.
+```
+
+This comes from the discrete Gaussian sampler in qFALL, at the width that
+this profile uses. It is harmless.
+
+To see the timing of each stage and the size of the proof at degree 64,
+add `--nocapture` to the flags that are already there. These are the
+figures reported in Chapter 8.
 
 ```sh
 cargo test --release --features lazer-ffi -- --test-threads=1 --nocapture
 ```
 
-LaZer prints `WARNING: A completely filled lookup table will exceed 2^16
-entries` many times during the run. It comes from qFALL's discrete
-Gaussian sampler at the width this profile uses and is harmless.
+### What that command does
 
-### What that one command does
+It is useful to know these steps. Two of them are not obvious, and the
+report discusses both. `build.rs` runs them in this order:
 
-The steps are worth knowing, because two of them are not obvious and both
-are discussed in the report. `build.rs` performs them in order:
+1. **Copy** `third_party/lazer` into the output folder of Cargo. The copy
+   in `third_party` is never changed, so you can start again by deleting
+   `target`.
+2. **Apply** the patches in `lazer/patches`. The fixed LaZer revision has
+   two bugs that stop the proof layer from working, and `lazer/README.md`
+   explains both of them. The patches are applied here instead of being
+   included in the source, so that you can read the changes in two short
+   files. Each patch is then checked by counting a line that it adds. A
+   tree with only some patches applied still compiles, and then fails
+   inside the proof layer, which is much harder to debug.
+3. **Build HEXL** with `cmake`, using the option
+   `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`. The Makefile of LaZer also
+   builds HEXL, but it does not pass this option. HEXL asks for a version
+   of CMake that CMake 4 refuses, and the error message is not clear, so
+   this step is done here instead.
+4. **Run `make lib-static`**, with `CPATH` and `LIBRARY_PATH` set to the
+   GMP and MPFR that Cargo built in Step 2. LaZer needs these two
+   libraries, and a shared machine often has neither of them. Reusing the
+   copy from Cargo means the build needs no root access.
 
-1. **Copy** `third_party/lazer` into Cargo's output directory. The
-   vendored copy stays untouched, and a failed build can be restarted by
-   deleting `target`.
-2. **Apply** `lazer/patches/*.patch`. The pinned revision has two defects
-   that stop the proof layer working, and `lazer/README.md` explains
-   both. They are kept as patches rather than shipped pre-applied, so
-   that what was changed can be read in two short files.
-   Each patch is then checked by counting a line it inserts, because a
-   half-patched tree compiles without complaint and fails later inside
-   the proof layer, which is much harder to diagnose.
-3. **Build the vendored HEXL** with `cmake`, passing
-   `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`. LaZer's own Makefile builds HEXL
-   too, but without that option, and HEXL declares a
-   `cmake_minimum_required` that CMake 4 refuses. The error without it is
-   unclear, which is why this step is taken here instead.
-4. **Run `make lib-static`**, with `CPATH` and `LIBRARY_PATH` pointed at
-   the GMP and MPFR that `gmp-mpfr-sys` built during Step 2. Those are the
-   two libraries LaZer needs, and a shared machine often has neither
-   installed; reusing Cargo's copy means the build needs no root.
+### Using a LaZer build that already exists
 
-### Reusing a LaZer tree that is already built
-
-Set all three of these and `build.rs` will link against that tree instead
-of building the vendored one:
+If you set all three variables below, `build.rs` links against that build
+instead of building the copy in `third_party`:
 
 ```sh
-LAZER_INCLUDE_DIR=<dir with lazer.h> \
-LAZER_LIB_DIR=<dir with liblazer.a> \
-LAZER_HEXL_LIB_DIR=<dir with libhexl.a> \
+LAZER_INCLUDE_DIR=<folder with lazer.h> \
+LAZER_LIB_DIR=<folder with liblazer.a> \
+LAZER_HEXL_LIB_DIR=<folder with libhexl.a> \
 cargo test --release --features lazer-ffi -- --test-threads=1
 ```
 
-Setting some but not all three is an error rather than a partial
-override, so a stale variable cannot silently half-apply.
+If you set only one or two of them, the build stops with an error. This
+prevents an old variable from being used by mistake.
 
-`lazer/README.md` documents the two patches, the two generated parameter
-profiles, and how to regenerate them with SageMath.
+`lazer/README.md` describes the two patches, the two proof profiles, and
+how to create the profiles again with SageMath.
+
+## Starting again from a clean state
+
+To remove everything that was built and start from nothing:
+
+```sh
+cargo clean && rm -rf .lazer-src .lazer
+```
+
+After this, Step 2 takes 10 to 20 minutes again, and Step 3 needs another
+5 to 15 minutes to build LaZer. The folders `.lazer-src` and `.lazer`
+only exist if you built LaZer by hand with an older version of this
+project, so the command works whether they are there or not.
+
+To rebuild LaZer but keep FLINT, which is much faster:
+
+```sh
+rm -rf target/*/build/blind-sig-*
+```
 
 ## The two preimage samplers
 
-The prototype carries 2 preimage samplers, and a key records which one it
-uses. What differs is *when* the short basis is orthogonalised, not what is
-sampled. Both draw a fresh, independent preimage on every call.
+This project has 2 preimage samplers, and each key records which one it
+uses. The difference is *when* the short basis is made orthogonal, not
+what is sampled. Both give a fresh, independent preimage on every call.
 
-| Sampler | Orthogonalises the short basis | Cost |
+| Sampler | Makes the short basis orthogonal | Cost |
 |---|---|---|
-| `stored` (default) | once, at key generation | key generation is slow, each signature is fast |
-| `per-call` | again on every call, as the qFALL sampler does | each signature carries a full orthogonalisation |
+| `stored` (default) | once, during key generation | key generation is slow, each signature is fast |
+| `per-call` | again on every call, like the qFALL sampler | every signature includes this work |
 
-They are interchangeable. They sample the same distribution over the same
-coset, and a signature made under one is accepted by a verifier using the
-other.
+The two samplers can replace each other. They sample the same
+distribution over the same coset, and a signature made with one is
+accepted by a verifier that uses the other.
 
-`cargo test` covers both without any flag, so Step 2 already tested
-them. Seven tests take each mode in turn: four in `src/preimage.rs` and two
-in `tests/protocol.rs` loop over both modes, and one more signs under one
-sampler and verifies under the other, in both directions. Two of these are
-worth naming. `repeated_samples_under_one_trapdoor_differ` checks that two
-calls on one trapdoor and one target give different preimages, which is
-what "fresh sample" means here.
-`the_stored_basis_samples_the_same_distribution` compares the mean squared
-norm of 60 samples from each mode, which is evidence that storing the basis
-changed the timing and not the output.
+`cargo test` covers both of them without any flag, so Step 2 has already
+tested them. Seven tests use each mode in turn. Four tests in
+`src/preimage.rs` and two in `tests/protocol.rs` loop over both modes,
+and one more signs with one sampler and verifies with the other, in both
+directions.
 
-To see the difference rather than test it, run the demo under the slower
-sampler and compare the `Step 2` line with the one in Step 2 above:
+Two of these tests are worth naming.
+`repeated_samples_under_one_trapdoor_differ` checks that two calls with
+one trapdoor and one target give different preimages, which is what a
+fresh sample means here.
+`the_stored_basis_samples_the_same_distribution` compares the mean
+squared norm of 60 samples from each mode. This gives evidence that
+storing the basis changed the speed and not the output.
+
+To see the difference instead of testing it, run the demo with the slower
+sampler. Compare its `Step 2` line with the one in Step 2 above.
 
 ```sh
 cargo run --release --bin blind-sig -- --sampler=per-call "hello world"
 ```
 
-The benchmark reports the step timings and puts the two samplers side by
-side. It takes about a minute.
+The benchmark shows the timing of each step and compares the two
+samplers. It takes about a minute.
 
 ```sh
 cargo run --release --bin bench
 ```
 
-`parameters` reports the chain that fixes the parameters: for a given
-gadget base, the preimage length, the least Gaussian width the sampler
-may use, the norm bound that width gives, and the modulus the proof
-system then needs. Each column is named in its own output.
+The `parameters` tool shows how the parameters are fixed. For one gadget
+base, it gives the preimage length, the smallest Gaussian width that the
+sampler may use, the norm bound from that width, and the modulus that the
+proof system then needs. Its output names every column.
 
 ```sh
 cargo run --release --bin parameters
 ```
 
-That sweeps every base at ring degree 8 and takes about a minute. Reading
-it at the degree the proof system actually uses means one base at a time,
-and about 16 minutes each, because it builds and orthogonalises a
-degree-64 trapdoor:
+That command tries every base at ring degree 8 and takes about a minute.
+To read the values at the degree that the proof system really uses, give
+one base at a time. Each run takes about 16 minutes, because it builds a
+trapdoor at degree 64 and makes its basis orthogonal.
 
 ```sh
 cargo run --release --bin parameters -- 64 288230376151713349 256
@@ -324,7 +360,7 @@ src/main.rs                    the interactive demo
 src/bin/bench.rs               step timings and size estimates
 src/bin/parameters.rs          the width, bound and modulus a base implies
 lazer/                         patches, C shims, and the two proof profiles
-third_party/lazer/             the pinned LaZer source, as published
+third_party/lazer/             the fixed LaZer source, as published
 build.rs                       builds LaZer, then compiles and links the shims
 tests/protocol.rs              the protocol through the public interface
 tests/lazer_protocol.rs        the same, with both proofs produced by LaZer
@@ -332,10 +368,10 @@ tests/lazer_protocol.rs        the same, with both proofs produced by LaZer
 
 ## Status
 
-Implemented: the scheme, the commitment, the issuing protocol, both proof
-layers, both preimage samplers, and three instantiations of `f`.
+Done: the scheme, the commitment, the issuing protocol, both proof
+layers, both preimage samplers, and three versions of `f`.
 
-Not implemented: straight-line extraction for `Pi_com`, which the security
-analysis assumes and Fiat--Shamir does not provide. The parameters used by
-the demo and the benchmark are toy values and are not the output of a
-parameter search.
+Not done: straight-line extraction for `Pi_com`. The security analysis
+needs this property, and Fiat--Shamir does not provide it. The parameters
+used by the demo and the benchmark are toy values. They are not the
+result of a parameter search.
