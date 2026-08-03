@@ -1,8 +1,3 @@
-// report: "Prototype Implementation"
-// Prototype of a two-move lattice-based blind signature in the
-// GenISIS_f framework. That chapter describes the design and the
-// stage plan.
-
 pub mod binary_encoding;
 pub mod commitment;
 pub mod commitment_proof;

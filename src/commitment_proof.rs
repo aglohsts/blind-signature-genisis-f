@@ -1,8 +1,7 @@
 // report: "The Native Proof Layer" and "The Proof Layer on LaZer"
 // Commitment-proof providers for the issuing protocol.
 //
-// The issuing protocol talks to `Pi_com` through this trait, so the
-// native Fiat--Shamir proof and the LaZer proof are interchangeable.
+// The issuing protocol talks to `Pi_com` through this trait, so the native Fiat--Shamir proof and the LaZer proof are interchangeable.
 
 use crate::keys::PublicKey;
 use crate::proof_com::{self, Proof};
@@ -11,8 +10,7 @@ use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 use std::convert::Infallible;
 
-// A proof provider for the commitment-opening relation
-// `c = B_1 m + B_2 r` with a short witness `(m, r)`.
+// a proof provider for the commitment-opening relation `c = B_1 m + B_2 r` with a short witness `(m, r)`
 pub trait CommitmentProofProvider<F: PublicFunction> {
     type Proof;
     type Error;
@@ -33,7 +31,7 @@ pub trait CommitmentProofProvider<F: PublicFunction> {
     ) -> bool;
 }
 
-// The native Fiat--Shamir proof provider.
+// native Fiat--Shamir proof provider
 pub struct FiatShamirProvider;
 
 impl<F: PublicFunction> CommitmentProofProvider<F> for FiatShamirProvider {
@@ -79,7 +77,7 @@ mod lazer {
     use qfall_math::traits::{GetCoefficient, MatrixDimensions, MatrixGetEntry};
     use qfall_tools::utils::common_moduli::new_anticyclic;
 
-    // An encoded proof for the fixed LaZer commitment profile.
+    // encoded proof for the fixed LaZer commitment profile.
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct LazerProof(Vec<u8>);
 
@@ -93,7 +91,7 @@ mod lazer {
         }
     }
 
-    // The fixed LaZer provider and its public-parameter seed.
+    // fixed LaZer provider and its public-parameter seed.
     pub struct LazerProvider {
         seed: [u8; 32],
     }
@@ -133,8 +131,6 @@ mod lazer {
         }
     }
 
-    // The profile is fixed at code-generation time, so a mismatch
-    // cannot be repaired at run time.
     fn validate_profile<F: PublicFunction>(public_key: &PublicKey<F>) -> Result<(), Error> { // check that the public key matches the generated profile
         let modulus = public_key.function.modulus();
         let expected = new_anticyclic(lazer_ffi::DEGREE as i64, lazer_ffi::MODULUS).unwrap();

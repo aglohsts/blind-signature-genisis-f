@@ -1,6 +1,5 @@
 // report: "The Native Proof Layer"
-// A Fiat-Shamir proof with rejection sampling for the commitment
-// relation `c = B_1 m + B_2 r`.
+// relation `c = B_1 m + B_2 r`
 
 use crate::commitment::CommitmentKey;
 use crate::util::norm_inf;
@@ -11,27 +10,26 @@ use qfall_math::traits::{
 };
 use qfall_schemes::hash::sha256::hash_to_mat_zq_sha256;
 
-// The bounds used by the proof.
+// bounds used by the proof
 pub struct ProofParameters {
     pub witness_inf: i64,
     pub mask_inf: i64,
 }
 
 impl ProofParameters {
-    pub fn response_inf(&self, degree: i64) -> i64 { // the bound on the response coefficients
+    pub fn response_inf(&self, degree: i64) -> i64 { // bound on the response coefficients
         self.mask_inf - degree * self.witness_inf
     }
 }
 
-// A proof of knowledge of a short opening.
+// proof of knowledge of a short opening
 pub struct Proof {
     pub challenge: PolyOverZ,
     pub message_response: MatPolyOverZ,
     pub randomness_response: MatPolyOverZ,
 }
 
-// The loop repeats until the response passes the rejection step, so
-// the response does not depend on the witness.
+// loop repeats until the response passes the rejection step, so the response does not depend on the witness
 pub fn prove(
     key: &CommitmentKey,
     parameters: &ProofParameters,
@@ -105,8 +103,7 @@ fn combine(
     &(&key.b1 * &message_ring) + &(&key.b2 * &randomness_ring)
 }
 
-// The hash input binds the matrices, the commitment, and the masking
-// commitment.
+// hash input binds the matrices, the commitment, and the masking commitment
 fn challenge_of(
     key: &CommitmentKey,
     commitment: &MatPolynomialRingZq,

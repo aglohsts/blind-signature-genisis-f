@@ -1,6 +1,6 @@
 // report: "Evaluation"
-// Benchmark: step timings and size estimates. Toy parameters; run
-// with --release.
+// Benchmark: step timings and size estimates
+// toy parameters, run with --release
 
 use blind_sig::binary_encoding::BinaryEncoding;
 use blind_sig::commitment_proof::FiatShamirProvider;
@@ -23,11 +23,9 @@ const ELL_M: i64 = 2;
 const ELL_R: i64 = 2;
 const PSI: i64 = 3;
 const REPS: u32 = 20;
-// Fewer repetitions for the sampler comparison: the per-call mode
-// orthogonalises the short basis on every call, so it is the slowest
-// thing the benchmark does.
+// fewer repetitions for the sampler comparison: the per-call mode orthogonalises the short basis on every call, so it is the slowest thing the benchmark does
 const SAMPLER_REPS: u32 = 5;
-// The number of issuing sessions the totals below are quoted for.
+// number of issuing sessions the totals below are quoted for
 const SESSIONS: f64 = 20.0;
 
 fn toy_sampler_with(sampling: Sampling) -> Sampler {
@@ -69,9 +67,7 @@ fn fresh_keys_with(sampling: Sampling) -> (PublicKey<HashToRing>, SecretKey) {
     key_gen(function, sampler, toy_parameters())
 }
 
-// These are the only two steps the choice of sampler reaches: the
-// commitment, the proof, the user check and verification never touch
-// the trapdoor.
+// the only two steps the choice of sampler reaches: the commitment, the proof, the user check and verification never touch the trapdoor
 fn measure_sampler(sampling: Sampling) -> (f64, f64) { // time key generation and one signer response under one sampler
     let keygen_ms = time_ms(SAMPLER_REPS, || fresh_keys_with(sampling));
     let (public_key, secret_key) = fresh_keys_with(sampling);
@@ -156,8 +152,8 @@ fn main() {
     let response_bits = bits_for(public_key.proof_parameters.response_inf(D));
     let preimage_bits = bits_for(max_abs_coeff(&signature.preimage));
     let randomness_bits = bits_for(max_abs_coeff(&signature.randomness));
-    // mu and xi are drawn from ranges of different sizes, so they are
-    // counted separately; this key uses 2^20 and 2^10.
+    // mu and xi are drawn from ranges of different sizes, so they are counted separately
+    // this key uses 2^20 and 2^10.
     let mu_bits = 20_i64;
     let xi_bits = 10_i64;
     let preimage_rows = public_key.a.get_num_columns();

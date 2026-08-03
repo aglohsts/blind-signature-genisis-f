@@ -6,15 +6,15 @@
 
 // report: "The Final-Signature Proof"
 //
-// the statement is the coefficient-level form of
-//
+// the coefficient-level form of
 //     A s - kappa xi - B_2 r - G enc(mu) - B_1 m = 0,
+// written as `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`
 //
-// written as `linear * (s, xi, r) + tag_matrix * enc(mu) + offset = 0`.
-// one evaluation equation is emitted per coefficient of the ring
-// equation. two further equations prove that the preimage is non-zero:
-// the first binds an unbounded variable h to the squared norm of s, and
-// the second forces h to have an inverse u.
+// one evaluation equation is emitted per coefficient of the ring equation
+//
+// two further equations prove that the preimage is non-zero:
+// the first binds an unbounded variable h to the squared norm of s
+// the second forces h to have an inverse u
 
 #define BS_SIG_D64_Q 288230376151713349LL
 

@@ -1,17 +1,14 @@
 // report: "Instantiations of f"
-// The fixed-function public function
-// `f(mu) = Coeffs^{-1}(B * enc(mu))` of BLNS, Section 3.1.2.
+// The fixed-function public function `f(mu) = Coeffs^{-1}(B * enc(mu))`
 
 use crate::public_function::PublicFunction;
 use qfall_math::integer::{MatPolyOverZ, MatZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, MatZq, ModulusPolynomialRingZq};
 use qfall_math::traits::{FromCoefficientEmbedding, MatrixSetEntry, Pow};
 
-// The binary-encoding public function used by one public key.
-//
-// The key space and the randomness space of the framework are
-// singletons here, so this function takes only the input `mu`. The
-// input space is `[2^t]`.
+// The binary-encoding public function used by one public key
+// The key space and the randomness space of the framework are singletons here, so this function takes only the input `mu`
+// The input space is `[2^t]`.
 pub struct BinaryEncoding {
     b_mat: MatZq,
     modulus: ModulusPolynomialRingZq,
@@ -51,8 +48,7 @@ impl BinaryEncoding {
 }
 
 impl PublicFunction for BinaryEncoding {
-    // The key space and the randomness space are singletons, so both
-    // are the unit type.
+    // The key space and the randomness space are singletons, so both are the unit type.
     type Key = ();
     type Input = Z;
     type Randomness = ();

@@ -1,20 +1,14 @@
 // report: "Making the Two Components Meet"
-// Works out which Gaussian width the preimage sampler needs, and which
-// modulus the proof system then needs, for a given gadget base.
 //
-// Usage: cargo run --release --bin parameters [degree] [modulus] [base]
-//
-// With no base it tries every base, which is only affordable at a small
-// degree. Use that to pick a base, then run it again at the real degree
-// with that base.
+// usage: cargo run --release --bin parameters [degree] [modulus] [base]
 
 use blind_sig::preimage::{Sampler, gadget_parameters};
 use qfall_math::rational::Q;
 use qfall_math::traits::MatrixDimensions;
 use std::time::Instant;
 
-// The slack LaZer applies to a witness norm before squaring it for its
-// modulus condition. Read from its generator.
+// LaZer applies to a witness norm before squaring it for its modulus condition
+// read from its generator
 const RANGE_PROOF_SLACK: f64 = 3358.0;
 
 // The degree the proof profile runs at.
@@ -100,8 +94,7 @@ fn main() {
         let columns = a.get_num_columns();
         let width = sampler.least_width(&trapdoor);
 
-        // Stated at the degree the proof system runs at, not at the
-        // degree this sweep happens to use.
+        // stated at the degree the proof system runs at, not at the degree this sweep happens to use
         let bound_sqrd = width * width * columns as f64 * TARGET_DEGREE;
         let slack_bound = RANGE_PROOF_SLACK * bound_sqrd.sqrt();
         println!(

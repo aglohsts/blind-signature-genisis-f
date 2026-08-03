@@ -1,6 +1,6 @@
-// report: "Key generation", implemented as described in
-// "The Commitment and the Protocol Layer"
-// Key generation: `pk = (A, B_1, B_2, kappa)` and `sk = T_A`.
+// report: "Key generation"
+// implemented as described in "The Commitment and the Protocol Layer"
+// key generation: `pk = (A, B_1, B_2, kappa)` and `sk = T_A`
 
 use crate::commitment::CommitmentKey;
 use crate::preimage::{Sampler, Trapdoor};
@@ -9,7 +9,7 @@ use crate::public_function::PublicFunction;
 use qfall_math::integer::Z;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 
-// The parameters that key generation needs beyond the function.
+// parameters that key generation needs beyond the function
 pub struct Parameters {
     pub ell_m: i64,
     pub ell_r: i64,
@@ -18,7 +18,7 @@ pub struct Parameters {
     pub proof: ProofParameters,
 }
 
-// The public key of the scheme.
+// public key
 pub struct PublicKey<F: PublicFunction> {
     pub a: MatPolynomialRingZq,
     pub commitment_key: CommitmentKey,
@@ -29,8 +29,7 @@ pub struct PublicKey<F: PublicFunction> {
     pub proof_parameters: ProofParameters,
 }
 
-// The secret key: the trapdoor for `A`, with the orthogonalised
-// short basis that sampling reuses.
+// secret key: the trapdoor for `A`, with the orthogonalised short basis that sampling reuses
 pub struct SecretKey {
     pub trapdoor: Trapdoor,
 }
@@ -45,11 +44,10 @@ pub fn key_gen<F: PublicFunction>(
         function.modulus(),
         "the function and the trapdoor must use the same ring modulus",
     );
-    // This is where the short basis is orthogonalised, once per key.
+    // where the short basis is orthogonalised
+    // once per key
     let (a, trapdoor) = sampler.trap_gen();
-    // A width below the smoothing bound leaves every observable
-    // behaviour intact and only shifts the output distribution towards
-    // the secret basis, so it has to be checked here.
+    // check: a width below the smoothing bound leaves every observable behaviour intact and only shifts the output distribution towards the secret basis
     assert!(
         sampler.width_meets_smoothing(&trapdoor),
         "the Gaussian width is below the smoothing bound of this basis: \
@@ -135,8 +133,7 @@ pub mod tests {
         assert_eq!(&public_key.a.get_mod(), public_key.function.modulus());
     }
 
-    // the function key is fixed by the public key, so it stays the
-    // same for every session
+    // function key is fixed by the public key, so it stays the same for every session
     #[test]
     fn function_key_is_inside_its_space() {
         let (public_key, _) = setup();

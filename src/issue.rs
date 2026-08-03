@@ -1,6 +1,6 @@
-// report: "Issuing protocol", implemented as described in
-// "The Commitment and the Protocol Layer"
-// The one-round issuing protocol.
+// report: "Issuing protocol"
+// implemented as described in "The Commitment and the Protocol Layer"
+// one-round issuing protocol.
 
 use crate::commitment_proof::CommitmentProofProvider;
 use crate::keys::{PublicKey, SecretKey};
@@ -9,37 +9,37 @@ use crate::util::norm_eucl_sqrd;
 use qfall_math::integer::MatPolyOverZ;
 use qfall_math::integer_mod_q::MatPolynomialRingZq;
 
-// The request sent by the user. The proof type is fixed by the
-// commitment-proof provider in use.
+// the request sent by the user. The proof type is fixed by the commitment-proof provider in use
 pub struct Request<P> {
     pub commitment: MatPolynomialRingZq,
     pub proof: P,
 }
 
-// What the user keeps between the two messages.
+// what the user keeps between the two messages
 pub struct UserState {
     pub message: MatPolyOverZ,
     pub randomness: MatPolyOverZ,
     pub commitment: MatPolynomialRingZq,
 }
 
-// What the signer sends back.
+// what the signer sends back
 pub struct Response<F: PublicFunction> {
     pub function_input: F::Input,
     pub function_randomness: F::Randomness,
     pub preimage: MatPolyOverZ,
 }
 
-// Why the signer produced no response. These are the abort conditions
-// of Step 2, kept apart because the first is about the user's request
-// and the other two are failures of the signer's own sampler.
+// why the signer produced no response.
+// abort conditions of Step 2
+// first is about the user's request
+// the other two are failures of the signer's own sampler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignerAbort {
-    // `Verify_com` rejected the proof that came with the request.
+    // `Verify_com` rejected the proof that came with the request
     ProofRejected,
-    // The sampled preimage missed the norm bound `B_s`.
+    // sampled preimage missed the norm bound `B_s`
     PreimageOutsideBound,
-    // The sampled preimage was zero, which `R_sig` excludes.
+    // sampled preimage was zero, which `R_sig` excludes
     ZeroPreimage,
 }
 
@@ -109,9 +109,8 @@ pub fn user_check<F: PublicFunction>(
     state: &UserState,
     response: &Response<F>,
 ) -> bool { // step 3: the user checks the response
-    // The norm bound comes first because the reused f_a asserts it.
-    // `check_domain` is an upper bound only, so `is_non_zero` supplies
-    // the `0 < ||s||` half of the report's Step 3 check.
+    // norm bound comes first because the reused f_a asserts it
+    // `check_domain` is an upper bound only, so `is_non_zero` supplies the `0 < ||s||` half of the report's Step 3 check
     public_key
         .function
         .contains_input(&response.function_input)
@@ -160,8 +159,7 @@ mod tests {
         assert!(user_check(&public_key, &state, &response));
     }
 
-    // after an honest run the user holds a witness for the final
-    // relation A s = f(kappa, mu, xi) + B_1 m + B_2 r
+    // after an honest run the user holds a witness for the final relation A s = f(kappa, mu, xi) + B_1 m + B_2 r
     #[test]
     fn finalisation_identity_holds() {
         let (public_key, secret_key, message) = setup();
@@ -213,9 +211,9 @@ mod tests {
         assert!(!user_check(&public_key, &state, &response));
     }
 
-    // step 3 asks for `0 < ||s||`. The equation fails here too, so this
-    // guards the extra check rather than isolating it; `preimage.rs`
-    // isolates the gap in the reused component.
+    // step 3 asks for `0 < ||s||`
+    // the equation fails here too, so this guards the extra check rather than isolating it
+    // `preimage.rs` isolates the gap in the reused component
     #[test]
     fn a_zero_preimage_fails_the_user_check() {
         let (public_key, secret_key, message) = setup();

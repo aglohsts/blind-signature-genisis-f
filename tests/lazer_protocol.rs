@@ -1,5 +1,5 @@
 // report: "LaZer Integration" and "The Final-Signature Proof"
-// Integration tests for the LaZer-backed proof layer.
+// integration tests for the LaZer-backed proof layer
 //
 // These run only with the `lazer-ffi` feature, which needs the pinned
 // LaZer libraries; see `lazer/README.md`. Key generation at `d = 64`

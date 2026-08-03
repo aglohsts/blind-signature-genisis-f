@@ -35,15 +35,11 @@ const D: i64 = 8;
 const Q_MOD: u64 = 257;
 const ELL_M: i64 = 2;
 
-// The message space holds `ELL_M * D` coefficients and the norm bound
-// is 16, so a binary vector of that length always fits. That is two
-// bytes, which is why real input is hashed down to it first: the
-// message space of these toy parameters is smaller than any message
-// worth signing.
+// message space holds `ELL_M * D` coefficients and the norm bound is 16, so a binary vector of that length always fits
+// 2 bytes, which is why real input is hashed down to it first: the message space of these toy parameters is smaller than any message worth signing
 const MESSAGE_BITS: i64 = ELL_M * D;
 
-// Every coefficient is 0 or 1, so the squared norm is the number of
-// ones and never exceeds the bound.
+// every coefficient is 0 or 1, so the squared norm is the number of ones and never exceeds the bound
 fn encode(text: &str) -> (MatPolyOverZ, String) { // hash text into the message space
     let bits = hash_to_mat_zq_sha256(text, MESSAGE_BITS, 1, 2)
         .get_representative_least_nonnegative_residue();
@@ -131,7 +127,7 @@ fn sign_and_report(
     );
 }
 
-// Everything else is returned in order and treated as a message.
+// everything else: returned in order and treated as a message
 fn parse_arguments() -> Result<(Sampling, Vec<String>), String> { // split `--sampler=<mode>` out of the arguments
     let mut sampling = Sampling::default();
     let mut messages = Vec::new();

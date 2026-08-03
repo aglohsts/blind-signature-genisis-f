@@ -1,11 +1,11 @@
 // report: "The Commitment and the Protocol Layer"
-// The commitment `c = B_1 m + B_2 r` over `R_q`.
+// commitment `c = B_1 m + B_2 r` over `R_q`.
 
 use qfall_math::integer::{MatPolyOverZ, Z};
 use qfall_math::integer_mod_q::{MatPolynomialRingZq, ModulusPolynomialRingZq};
 use qfall_math::traits::MatrixDimensions;
 
-// The public commitment matrices.
+// public commitment matrices.
 pub struct CommitmentKey {
     pub b1: MatPolynomialRingZq,
     pub b2: MatPolynomialRingZq,

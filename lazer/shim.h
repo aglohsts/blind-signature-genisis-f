@@ -20,8 +20,8 @@ extern "C" {
 #define BS_LAZER_D64_WITNESS_COEFFS                                           \
     (BS_LAZER_D64_COMMITMENT_COLUMNS * BS_LAZER_D64_DEGREE)
 
-// the bounded witness is the concatenation (s, xi, r); its three
-// blocks match the three exact l2 proofs of the generated profile
+// the bounded witness is the concatenation (s, xi, r)
+// its three blocks match the three exact l2 proofs of the generated profile
 #define BS_LAZER_SIG_D64_DEGREE 64u
 #define BS_LAZER_SIG_D64_PREIMAGE_COLUMNS 10u
 #define BS_LAZER_SIG_D64_FUNCTION_RANDOMNESS_COLUMNS 2u
@@ -54,10 +54,9 @@ enum bs_lazer_status {
 // initialise the pinned LaZer library once per process
 int bs_lazer_init (void);
 
-// the modulus each generated profile actually uses; the advanced
-// generator is given a bit length and picks its own prime, so these are
-// read back rather than assumed; a mismatch with the constant the shims
-// reduce by would make the prover and the verifier disagree
+// the modulus each generated profile actually uses
+// the advanced generator is given a bit length and picks its own prime, so these are read back rather than assumed
+// a mismatch with the constant the shims reduce by would make the prover and the verifier disagree
 uint64_t bs_lazer_d64_modulus (void);
 uint64_t bs_lazer_sig_d64_modulus (void);
 
@@ -99,8 +98,7 @@ int bs_lazer_d64_prove (const int64_t *a, size_t a_len, const int64_t *c,
                         uint8_t *proof, size_t proof_capacity,
                         size_t *proof_len);
 
-// return 1 for an accepted proof, 0 for a rejected proof, or a negative
-// bs_lazer_status value for an invalid call or internal failure
+// return 1 for an accepted proof, 0 for a rejected proof, or a negative bs_lazer_status value for an invalid call or internal failure
 int bs_lazer_d64_verify (const int64_t *a, size_t a_len, const int64_t *c,
                          size_t c_len, const uint8_t ppseed[32],
                          const uint8_t *proof, size_t proof_len);

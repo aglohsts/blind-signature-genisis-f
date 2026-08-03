@@ -23,8 +23,8 @@ pub mod lazer_statement;
 #[cfg(feature = "lazer-ffi")]
 pub use lazer_statement::{LazerSignatureProof, LazerSignatureProvider};
 
-// A transparent signature. It carries the witness in the clear, so it
-// gives no blindness.
+// transparent signature.
+// carries the witness in the clear, so it gives no blindness
 pub struct Signature<F: PublicFunction> {
     pub function_input: F::Input,
     pub function_randomness: F::Randomness,
@@ -32,7 +32,7 @@ pub struct Signature<F: PublicFunction> {
     pub randomness: MatPolyOverZ,
 }
 
-// The caller runs the user check first.
+// caller runs the user check first
 pub fn finalise<F: PublicFunction>(state: UserState, response: Response<F>) -> Signature<F> { // step 4: the user builds the signature from its state and the response
     Signature {
         function_input: response.function_input,
@@ -48,9 +48,7 @@ pub fn verify<F: PublicFunction>(
     signature: &Signature<F>,
 ) -> bool { // check the final relation directly on the witness
     let degree = public_key.function.modulus().get_degree();
-    // Dimensions first, then the norm bounds: the reused products
-    // assert both, so an unchecked input would stop the program instead
-    // of being rejected.
+    // dimensions first, then the norm bounds: the reused products assert both, so an unchecked input would stop the program instead of being rejected
     if !has_layout(public_key, message, &signature.randomness, &signature.preimage, degree) {
         return false;
     }
@@ -75,7 +73,7 @@ pub fn verify<F: PublicFunction>(
                 .commit(message, &signature.randomness)
 }
 
-// A proof provider for the final-signature relation `R_sig`.
+// proof provider for the final-signature relation `R_sig`
 pub trait FinalSignatureProofProvider<F: PublicFunction> {
     type Witness;
     type Proof;
@@ -96,9 +94,8 @@ pub trait FinalSignatureProofProvider<F: PublicFunction> {
     ) -> bool;
 }
 
-// The hidden witness of `R_sig` for the algebraic public function.
-// The function input `mu` appears only through its binary encoding,
-// which is the form the proof system can handle.
+// hidden witness of `R_sig` for the algebraic public function
+// input `mu` appears only through its binary encoding (the form the proof system can handle)
 pub struct ModuleLweWitness {
     pub encoding: MatZ,
     pub function_randomness: MatPolyOverZ,
@@ -106,7 +103,7 @@ pub struct ModuleLweWitness {
     pub randomness: MatPolyOverZ,
 }
 
-// A final signature that contains only its proof.
+// final signature that contains only its proof
 pub struct ProofSignature<P> {
     pub proof: P,
 }
@@ -152,9 +149,7 @@ where
     provider.verify(public_key, message, &signature.proof)
 }
 
-// The proof provider calls this before it hands the witness to LaZer,
-// so a malformed witness is reported as an error instead of an
-// invalid proof.
+// proof provider calls this before it hands the witness to LaZer, so a malformed witness is reported as an error instead of an invalid proof
 pub fn relation_holds(
     public_key: &PublicKey<ModuleLweEncoding>,
     message: &MatPolyOverZ,
@@ -199,8 +194,7 @@ pub fn relation_holds(
                     .commit(message, &witness.randomness)
 }
 
-// Both verification paths check these first, so a malformed input is
-// rejected instead of stopping the program.
+// both verification paths check these first, so a malformed input is rejected instead of stopping the program
 fn has_layout<F: PublicFunction>(
     public_key: &PublicKey<F>,
     message: &MatPolyOverZ,
@@ -300,8 +294,7 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    // adding a multiple of q keeps the equation over R_q but breaks
-    // the norm bound, so verification must reject
+    // adding a multiple of q keeps the equation over R_q but breaks the norm bound, so verification must reject
     #[test]
     fn oversized_preimage_fails_the_norm_check() {
         let (public_key, secret_key, message) = setup();
@@ -312,8 +305,8 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    // R_sig asks for `0 < ||s||`; the reused bound check accepts zero,
-    // so verification supplies the other half itself
+    // R_sig asks for `0 < ||s||`
+    // the reused bound check accepts zero, so verification supplies the other half itself
     #[test]
     fn a_zero_preimage_fails_verification() {
         let (public_key, secret_key, message) = setup();
@@ -323,8 +316,7 @@ mod tests {
         assert!(!verify(&public_key, &message, &signature));
     }
 
-    // must be rejected, not stop the program: the reused commitment
-    // product asserts its shapes
+    // must be rejected, not stop the program: the reused commitment product asserts its shapes
     #[test]
     fn a_wrong_length_message_is_rejected() {
         let (public_key, secret_key, message) = setup();

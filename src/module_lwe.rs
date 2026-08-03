@@ -21,7 +21,7 @@ use qfall_math::traits::{
     FromCoefficientEmbedding, MatrixDimensions, MatrixSetEntry, Pow,
 };
 
-// The algebraic public function used by one public key.
+// algebraic public function used by one public key
 pub struct ModuleLweEncoding {
     // The encoding matrix `G`, held in its coefficient embedding.
     g_mat: MatZq,
@@ -33,10 +33,9 @@ pub struct ModuleLweEncoding {
 }
 
 impl ModuleLweEncoding {
-    // Sample the encoding matrix `G`. The input space is `[2^t]`, so
-    // `t` is bounded as in the binary encoding. The function
-    // randomness has `ell_xi` entries with coefficients bounded by
-    // `psi_xi`.
+    // sample the encoding matrix `G`
+    // input space is `[2^t]`, so `t` is bounded as in the binary encoding
+    // function randomness has `ell_xi` entries with coefficients bounded by `psi_xi`
     pub fn new(
         rows: i64,
         t: i64,
@@ -77,13 +76,12 @@ impl ModuleLweEncoding {
         Z::from(self.psi_xi * self.psi_xi * self.ell_xi * degree)
     }
 
-    // The LaZer statement builder reads it column by column.
+    // LaZer statement builder reads it column by column
     pub fn encoding_matrix(&self) -> &MatZq { // return the encoding matrix `G` in its coefficient embedding
         &self.g_mat
     }
 
-    // This is the binary part of the witness of the final-signature
-    // relation.
+    // the binary part of the witness of the final-signature relation
     pub fn encode(&self, input: &Z) -> MatZ { // return the binary decomposition of `input - 1` as a `t x 1` integer matrix
         assert!(self.contains_input(input), "the input is outside M");
         let bits = (input - Z::ONE).to_bits();
@@ -95,8 +93,7 @@ impl ModuleLweEncoding {
         encoding
     }
 
-    // The LaZer statement uses this term separately from the masking
-    // term.
+    // LaZer statement uses this term separately from the masking term
     pub fn eval_encoding(&self, encoding: &MatZ) -> Option<MatPolynomialRingZq> { // evaluate the encoding term `G * enc(mu)` on its own
         if encoding.get_num_rows() != self.t || encoding.get_num_columns() != 1 {
             return None;

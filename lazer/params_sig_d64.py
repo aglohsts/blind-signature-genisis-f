@@ -54,8 +54,8 @@ randomness_bound_sq = 2_000
 m1 = preimage_length + function_randomness_length + randomness_length
 alpha = sqrt(preimage_bound_sq + function_randomness_bound_sq + randomness_bound_sq)
 
-# m stores the binary encoding of mu, the preimage norm, and a modular
-# inverse of that norm. The inverse proves the norm is non-zero.
+# m stores the binary encoding of mu, the preimage norm, and a modular inverse of that norm
+# the inverse proves the norm is non-zero
 l = 3
 nbin = 1
 
@@ -66,6 +66,6 @@ B = [
     sqrt(randomness_bound_sq),
 ]
 
-# This zero-valued ARP keeps the pinned advanced prover on its initialised path.
+# zero-valued ARP keeps the pinned advanced prover on its initialised path
 nprime = 1
 Bprime = 1

@@ -1,5 +1,5 @@
 // report: "Making the Two Components Meet"
-// Preimage sampling with a stored orthogonalised basis.
+// preimage sampling with a stored orthogonalised basis
 //
 // The reused ring sampler rebuilds the short basis of the trapdoor on
 // every call and orthogonalises it again. Building the basis is
