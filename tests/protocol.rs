@@ -66,27 +66,41 @@ fn honest_run(
     finalise(state, response)
 }
 
+fn honest_signature_verifies(sampling: Sampling) {
+    let (public_key, secret_key) = keys_with("honest", sampling);
+    assert_eq!(sampling, public_key.sampler.sampling());
+    let message = sample_message();
+    let signature = honest_run(&public_key, &secret_key, &message);
+    assert!(verify(&public_key, &message, &signature));
+}
+
 #[test]
-fn an_honest_signature_verifies() {
-    for sampling in Sampling::ALL {
-        let (public_key, secret_key) = keys_with("honest", sampling);
-        assert_eq!(sampling, public_key.sampler.sampling());
+fn an_honest_signature_verifies_stored() {
+    honest_signature_verifies(Sampling::StoredBasis);
+}
+
+#[test]
+fn an_honest_signature_verifies_per_call() {
+    honest_signature_verifies(Sampling::PerCall);
+}
+
+fn ten_honest_runs_verify(sampling: Sampling) {
+    let (public_key, secret_key) = keys_with("repeat", sampling);
+    for _ in 0..10 {
         let message = sample_message();
         let signature = honest_run(&public_key, &secret_key, &message);
-        assert!(verify(&public_key, &message, &signature), "{sampling}");
+        assert!(verify(&public_key, &message, &signature));
     }
 }
 
 #[test]
-fn ten_honest_runs_verify_under_one_key() {
-    for sampling in Sampling::ALL {
-        let (public_key, secret_key) = keys_with("repeat", sampling);
-        for _ in 0..10 {
-            let message = sample_message();
-            let signature = honest_run(&public_key, &secret_key, &message);
-            assert!(verify(&public_key, &message, &signature), "{sampling}");
-        }
-    }
+fn ten_honest_runs_verify_under_one_key_stored() {
+    ten_honest_runs_verify(Sampling::StoredBasis);
+}
+
+#[test]
+fn ten_honest_runs_verify_under_one_key_per_call() {
+    ten_honest_runs_verify(Sampling::PerCall);
 }
 
 // a signature made under one sampler verifies under a key using the other, which is what interchangeable means here

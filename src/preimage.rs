@@ -306,34 +306,51 @@ mod tests {
         )
     }
 
-    // the tests below iterate over `Sampling::ALL`, so both modes are covered rather than just the default
-    #[test]
-    fn a_sample_solves_the_equation_and_respects_the_bound() {
-        for sampling in Sampling::ALL {
-            let sampler = toy_sampler_with(1, sampling);
-            let (a, trapdoor) = sampler.trap_gen();
-            let target = MatPolynomialRingZq::sample_uniform(1, 1, sampler.modulus());
+    // each claim about the sampler is made about both modes; the two are named
+    // separately so the list of tests shows which modes ran, and so that either
+    // can be run alone with `cargo test per_call`
+    fn a_sample_solves_the_equation(sampling: Sampling) {
+        let sampler = toy_sampler_with(1, sampling);
+        let (a, trapdoor) = sampler.trap_gen();
+        let target = MatPolynomialRingZq::sample_uniform(1, 1, sampler.modulus());
 
-            let preimage = sampler.samp_p(&trapdoor, &target);
-            assert_eq!(target, sampler.f_a(&a, &preimage), "{sampling}");
-            assert!(sampler.check_domain(&preimage), "{sampling}");
-            assert!(sampler.is_non_zero(&preimage), "{sampling}");
-        }
+        let preimage = sampler.samp_p(&trapdoor, &target);
+        assert_eq!(target, sampler.f_a(&a, &preimage));
+        assert!(sampler.check_domain(&preimage));
+        assert!(sampler.is_non_zero(&preimage));
     }
 
     #[test]
-    fn repeated_samples_under_one_trapdoor_differ() {
-        for sampling in Sampling::ALL {
-            let sampler = toy_sampler_with(1, sampling);
-            let (a, trapdoor) = sampler.trap_gen();
-            let target = MatPolynomialRingZq::sample_uniform(1, 1, sampler.modulus());
+    fn a_sample_solves_the_equation_stored() {
+        a_sample_solves_the_equation(Sampling::StoredBasis);
+    }
 
-            let first = sampler.samp_p(&trapdoor, &target);
-            let second = sampler.samp_p(&trapdoor, &target);
-            assert_eq!(target, sampler.f_a(&a, &first), "{sampling}");
-            assert_eq!(target, sampler.f_a(&a, &second), "{sampling}");
-            assert_ne!(first, second, "{sampling} must not be deterministic");
-        }
+    #[test]
+    fn a_sample_solves_the_equation_per_call() {
+        a_sample_solves_the_equation(Sampling::PerCall);
+    }
+
+    // repeated calls under one trapdoor must keep working and must not repeat
+    fn repeated_samples_differ(sampling: Sampling) {
+        let sampler = toy_sampler_with(1, sampling);
+        let (a, trapdoor) = sampler.trap_gen();
+        let target = MatPolynomialRingZq::sample_uniform(1, 1, sampler.modulus());
+
+        let first = sampler.samp_p(&trapdoor, &target);
+        let second = sampler.samp_p(&trapdoor, &target);
+        assert_eq!(target, sampler.f_a(&a, &first));
+        assert_eq!(target, sampler.f_a(&a, &second));
+        assert_ne!(first, second, "the sampler must not be deterministic");
+    }
+
+    #[test]
+    fn repeated_samples_under_one_trapdoor_differ_stored() {
+        repeated_samples_differ(Sampling::StoredBasis);
+    }
+
+    #[test]
+    fn repeated_samples_under_one_trapdoor_differ_per_call() {
+        repeated_samples_differ(Sampling::PerCall);
     }
 
     #[test]
@@ -448,13 +465,20 @@ mod tests {
         assert!(!narrow.width_meets_smoothing(&trapdoor));
     }
 
+    fn bound_matches_the_dimensions(sampling: Sampling) {
+        let sampler = toy_sampler_with(1, sampling);
+        let (a, _) = sampler.trap_gen();
+        let expected = Q::from(100 * 100 * a.get_num_columns() * D);
+        assert_eq!(expected, sampler.preimage_bound_sqrd());
+    }
+
     #[test]
-    fn the_bound_matches_the_dimensions() {
-        for sampling in Sampling::ALL {
-            let sampler = toy_sampler_with(1, sampling);
-            let (a, _) = sampler.trap_gen();
-            let expected = Q::from(100 * 100 * a.get_num_columns() * D);
-            assert_eq!(expected, sampler.preimage_bound_sqrd(), "{sampling}");
-        }
+    fn the_bound_matches_the_dimensions_stored() {
+        bound_matches_the_dimensions(Sampling::StoredBasis);
+    }
+
+    #[test]
+    fn the_bound_matches_the_dimensions_per_call() {
+        bound_matches_the_dimensions(Sampling::PerCall);
     }
 }

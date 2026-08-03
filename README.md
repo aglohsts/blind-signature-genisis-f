@@ -60,11 +60,11 @@ times come from the reference machine.
 |---|---|---|
 | 1. Install the toolchain | 5 min | — |
 | 2. `cargo test` | 10 to 20 min, because it compiles FLINT, GMP and MPFR | a few seconds |
-| 3. `cargo test --features lazer-ffi` | 5 to 15 min to build LaZer, then 20 to 30 min to run | 20 to 30 min |
+| 3. `cargo test --features lazer-ffi` | 5 to 15 min to build LaZer, then 15 to 20 min to run | 15 to 20 min |
 
-Step 3 is slow because it generates one key at ring degree 64, and that
-alone takes about 16 minutes. If it prints nothing for 15 minutes,
-nothing is wrong.
+Step 3 is slow because it generates one key at ring degree 64. That step
+alone takes about 15 minutes, which is over 90 per cent of the whole run.
+If the screen shows nothing for a quarter of an hour, nothing is wrong.
 
 ## Step 1: install the toolchain
 
@@ -128,13 +128,13 @@ or a later version.
 cargo test
 ```
 
-This runs 71 tests: 64 unit tests and 7 integration tests. It does not
+This runs 76 tests: 67 unit tests and 9 integration tests. It does not
 need LaZer, because the `lazer-ffi` feature is off by default. The last
 lines should be:
 
 ```text
-test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 You can also run the protocol yourself. The command below prints the 4
@@ -191,13 +191,13 @@ and takes 5 to 15 minutes.
 This is normal. Cargo gives build scripts no other way to print a
 message, so the text appears as a warning.
 
-After that, the tests run for 20 to 30 minutes. They end with 85 tests,
+After that, the tests run for 15 to 20 minutes. They end with 90 tests,
 which is 14 more than Step 2:
 
 ```text
-test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 78 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 During the run, LaZer prints this line many times:
@@ -295,18 +295,30 @@ distribution over the same coset, and a signature made with one is
 accepted by a verifier that uses the other.
 
 `cargo test` covers both of them without any flag, so Step 2 has already
-tested them. Seven tests use each mode in turn. Four tests in
-`src/preimage.rs` and two in `tests/protocol.rs` loop over both modes,
-and one more signs with one sampler and verifies with the other, in both
-directions.
+tested them. Twelve tests do this. Five claims are made about each
+sampler, and each one has a test per mode, so the name of the test says
+which mode ran:
 
-Two of these tests are worth naming.
-`repeated_samples_under_one_trapdoor_differ` checks that two calls with
-one trapdoor and one target give different preimages, which is what a
-fresh sample means here.
+```text
+a_sample_solves_the_equation_stored          a_sample_solves_the_equation_per_call
+repeated_samples_under_one_trapdoor_differ_stored   ..._per_call
+the_bound_matches_the_dimensions_stored      the_bound_matches_the_dimensions_per_call
+an_honest_signature_verifies_stored          an_honest_signature_verifies_per_call
+ten_honest_runs_verify_under_one_key_stored  ..._per_call
+```
+
+You can run one mode on its own:
+
+```sh
+cargo test --release per_call
+```
+
+Two further tests compare the modes instead of repeating a claim.
 `the_stored_basis_samples_the_same_distribution` compares the mean
-squared norm of 60 samples from each mode. This gives evidence that
-storing the basis changed the speed and not the output.
+squared norm of 60 samples from each mode, under one trapdoor and one
+target. This gives evidence that storing the basis changed the speed and
+not the output. `either_sampler_produces_signatures_the_other_key_verifies`
+signs with one sampler and verifies with the other, in both directions.
 
 To see the difference instead of testing it, run the demo with the slower
 sampler. Compare its `Step 2` line with the one in Step 2 above.
