@@ -179,9 +179,8 @@ initialiser. This adds 14 tests. Key generation at `d = 64` dominates the
 runtime, so the suite takes 20 to 30 minutes and is quiet for long
 stretches.
 
-`lazer/README.md` documents the two patches, the generated parameter
-profiles, and how to regenerate them with SageMath. Regeneration is the only
-step that needs Docker.
+`lazer/README.md` documents the two patches, the two generated parameter
+profiles, and how to regenerate them with SageMath.
 
 ## Layout
 

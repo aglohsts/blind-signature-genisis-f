@@ -18,7 +18,6 @@ file covers only what lives here.
 | `shim.c`, `shim.h` | the C boundary for the commitment proof |
 | `shim_sig.c` | the C boundary for the final-signature proof |
 | `shim_sig_statement.c`, `shim_sig_statement.h` | builds the final-signature statement for LaZer |
-| `Dockerfile` | builds the libraries and regenerates the profiles |
 | `probe_small_q.py` | helper used when searching for a modulus |
 
 ## The two patches
@@ -66,46 +65,20 @@ proof lengths are compile-time constants, and the Rust tests assert them:
 24,696 bytes for `Pi_com`, and 27,008 bytes as the declared maximum for
 `Pi_sig`. Both change whenever a profile changes.
 
-## Building the libraries with Docker
-
-This is an alternative to building LaZer by hand. The build is
-`linux/amd64`, which matches the pinned revision.
-
-```sh
-docker build --platform linux/amd64 --file lazer/Dockerfile \
-    --target library-artifacts --output type=local,dest=.lazer .
-```
-
-It writes:
-
-```text
-.lazer/include/lazer.h
-.lazer/lib/liblazer.a
-.lazer/lib/libhexl.a
-.lazer/metadata/LAZER_REVISION
-```
-
-Set `LAZER_INCLUDE_DIR=.lazer/include`, and use `.lazer/lib` for both
-`LAZER_LIB_DIR` and `LAZER_HEXL_LIB_DIR`.
-
 ## Regenerating the profiles
 
-This is the only step that needs SageMath, which is why it uses Docker.
-Build the generator image:
+The checked-in `.h` files were generated from the `.py` sources by LaZer's
+own generator scripts, which are written for SageMath. Those scripts are in
+`scripts/` in the LaZer source tree, and they read
+`third_party/estimator.py` from the same tree. SageMath 10.2 was used.
+
+Run them from the LaZer `scripts/` directory, writing the output back into
+this directory:
 
 ```sh
-docker build --platform linux/amd64 --file lazer/Dockerfile \
-    --target parameter-generator --tag blind-sig-lazer-params .
+sage lin-codegen.sage      <project>/lazer/params_d64.py     > <project>/lazer/params_d64.h
+sage lnp-tbox-codegen.sage <project>/lazer/params_sig_d64.py > <project>/lazer/params_sig_d64.h
 ```
 
-Then run it from the project root:
-
-```sh
-docker run --rm --platform linux/amd64 --volume "$PWD:/project" \
-    blind-sig-lazer-params lin-codegen.sage \
-    /project/lazer/params_d64.py > lazer/params_d64.h
-
-docker run --rm --platform linux/amd64 --volume "$PWD:/project" \
-    blind-sig-lazer-params lnp-tbox-codegen.sage \
-    /project/lazer/params_sig_d64.py > lazer/params_sig_d64.h
-```
+This is only needed when a parameter changes. The generated headers are
+checked in, so a normal build never runs it.
